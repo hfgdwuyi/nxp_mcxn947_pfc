@@ -91,6 +91,7 @@ converted to ticks using the portTICK_PERIOD_MS constant. */
 #define EXAMPLE_FLEXCAN_IRQHandler CAN0_IRQHandler
 
 
+// #define LPUART4          LPUART4
 #define LPUART_CLK_FREQ CLOCK_GetLPFlexCommClkFreq(4u)
 #define BUFFER_SIZE          256
 #define RX_BUFFER_SIZE 		256
@@ -106,9 +107,10 @@ converted to ticks using the portTICK_PERIOD_MS constant. */
 #define CAN_CLK_FREQ       CLOCK_GetFlexcanClkFreq(0U)
 #define USE_IMPROVED_TIMING_CONFIG (1)
 
+#define DEMO_LPUART            LPUART4
 #define DEMO_LPUART_CLK_FREQ   CLOCK_GetLPFlexCommClkFreq(4u)
 #define DEMO_LPUART_IRQn       LP_FLEXCOMM4_IRQn
-#define LPUART_IRQHandler LP_FLEXCOMM4_IRQHandler
+#define DEMO_LPUART_IRQHandler LP_FLEXCOMM4_IRQHandler
 
 #define BOARD_SW3_NAME        "SW3"
 #define BOARD_SW3_IRQ         GPIO00_IRQn
@@ -315,18 +317,18 @@ static bool buffer_pop(circular_buffer_t *buf, uint8_t *data) {
     return true;
 }
 
-void LPUART_IRQHandler(void)
+void DEMO_LPUART_IRQHandler(void)
 {
     BaseType_t xHigherPriorityTaskWoken = pdFALSE;
     static uart_message_t msg = {0};
     static uint16_t bufIndex = 0;
-    uint32_t statusFlags = LPUART_GetStatusFlags(LPUART4);
+    uint32_t statusFlags = LPUART_GetStatusFlags(DEMO_LPUART);
 
     /* 仅处理接收中断 */
     if (statusFlags & kLPUART_RxDataRegFullFlag)
     {
-        uint8_t ch = LPUART_ReadByte(LPUART4);
-        LPUART_ClearStatusFlags(LPUART4, kLPUART_RxDataRegFullFlag); // 清除接收标志
+        uint8_t ch = LPUART_ReadByte(DEMO_LPUART);
+        LPUART_ClearStatusFlags(DEMO_LPUART, kLPUART_RxDataRegFullFlag); // 清除接收标志
         
         /* 临界区保护（防止任务同时访问msg） */
          taskENTER_CRITICAL_FROM_ISR();
@@ -478,6 +480,10 @@ static FLEXCAN_CALLBACK(flexcan_callback)
 
 void delayWwdtWindow(void)
 {
+    /* For the TV counter register value will decrease after feed watch dog,
+     * we can use it to as delay. But in user scene, user need feed watch dog
+     * in the time period after enter Window but before warning intterupt.
+     */
     while (WWDT0->TV > WWDT0->WINDOW)
     {
         __NOP();
@@ -555,10 +561,24 @@ int main(void)
     event semaphore task. */
     vSemaphoreCreateBinary(xEventSemaphore);
 
-
-    if (xTaskCreate(
-                    prvQueueReceiveTask,"Rx",configMINIMAL_STACK_SIZE + 166,NULL,
+    /* Create the queue receive task as described in the comments at the top
+    of this    file. */
+    if (xTaskCreate(/* The function that implements the task. */
+                    prvQueueReceiveTask,
+                    /* Text name for the task, just to help debugging. */
+                    "Rx",
+                    /* The size (in words) of the stack that should be created
+                    for the task. */
+                    configMINIMAL_STACK_SIZE + 166,
+                    /* A parameter that can be passed into the task.  Not used
+                    in this simple demo. */
+                    NULL,
+                    /* The priority to assign to the task.  tskIDLE_PRIORITY
+                    (which is 0) is the lowest priority.  configMAX_PRIORITIES - 1
+                    is the highest priority. */
                     mainQUEUE_RECEIVE_TASK_PRIORITY,
+                    /* Used to obtain a handle to the created task.  Not used in
+                    this simple demo, so set to NULL. */
                     NULL) != pdPASS)
     {
         PRINTF("Task creation failed!.\r\n");
@@ -566,7 +586,8 @@ int main(void)
             ;
     }
 
-
+    /* Create the queue send task in exactly the same way.  Again, this is
+    described in the comments at the top of the file. */
     if (xTaskCreate(prvQueueSendTask, "TX", configMINIMAL_STACK_SIZE + 166, NULL, mainQUEUE_SEND_TASK_PRIORITY, NULL) !=
         pdPASS)
     {
@@ -575,7 +596,8 @@ int main(void)
             ;
     }
 
-
+    /* Create the queue send task in exactly the same way.  Again, this is
+        described in the comments at the top of the file. */
 	if (xTaskCreate(prvUartRxTask, "command", 512, NULL, mainQUEUE_SEND_TASK_PRIORITY, NULL) !=
 		pdPASS)
 	{
@@ -779,6 +801,17 @@ void vApplicationTickHook(void)
         xSemaphoreGiveFromISR(xEventSemaphore, &xHigherPriorityTaskWoken);
         ulCount = 0UL;
     }
+
+    /* If xHigherPriorityTaskWoken is pdTRUE then a context switch should
+    normally be performed before leaving the interrupt (because during the
+    execution of the interrupt a task of equal or higher priority than the
+    running task was unblocked).  The syntax required to context switch from
+    an interrupt is port dependent, so check the documentation of the port you
+    are using.
+
+    In this case, the function is running in the context of the tick interrupt,
+    which will automatically check for the higher priority task to run anyway,
+    so no further action is required. */
 }
 
 /*!
@@ -786,6 +819,15 @@ void vApplicationTickHook(void)
  */
 void vApplicationMallocFailedHook(void)
 {
+    /* The malloc failed hook is enabled by setting
+    configUSE_MALLOC_FAILED_HOOK to 1 in FreeRTOSConfig.h.
+
+    Called if a call to pvPortMalloc() fails because there is insufficient
+    free memory available in the FreeRTOS heap.  pvPortMalloc() is called
+    internally by FreeRTOS API functions that create tasks, queues, software
+    timers, and semaphores.  The size of the FreeRTOS heap is set by the
+    configTOTAL_HEAP_SIZE configuration constant in FreeRTOSConfig.h. */
+
     PRINTF("Memory allocation failed!\r\n");
     for (;;)
         ;
@@ -798,6 +840,12 @@ void vApplicationStackOverflowHook(TaskHandle_t xTask, char *pcTaskName)
 {
     (void)pcTaskName;
     (void)xTask;
+
+    /* Run time stack overflow checking is performed if
+    configconfigCHECK_FOR_STACK_OVERFLOW is defined to 1 or 2.  This hook
+    function is called if a stack overflow is detected.  pxCurrentTCB can be
+    inspected in the debugger if the task name passed into this function is
+    corrupt. */
     for (;;)
         ;
 }
@@ -809,11 +857,20 @@ void vApplicationIdleHook(void)
 {
     volatile size_t xFreeStackSpace;
 
+    /* The idle task hook is enabled by setting configUSE_IDLE_HOOK to 1 in
+    FreeRTOSConfig.h.
+
+    This function is called on each cycle of the idle task.  In this case it
+    does nothing useful, other than report the amount of FreeRTOS heap that
+    remains unallocated. */
     xFreeStackSpace = xPortGetFreeHeapSize();
 
     if (xFreeStackSpace > 100)
     {
-
+        /* By now, the kernel has allocated everything it is going to, so
+        if there is a lot of heap remaining unallocated then
+        the value of configTOTAL_HEAP_SIZE in FreeRTOSConfig.h can be
+        reduced accordingly. */
     }
 }
 
@@ -1150,7 +1207,19 @@ void DAC_Configure(void)
 
 void CAN_Configure(void)
 {
-    /* Get FlexCAN module default Configuration. */
+/* Get FlexCAN module default Configuration. */
+    /*
+     * flexcanConfig.clkSrc                 = kFLEXCAN_ClkSrc0;
+     * flexcanConfig.bitRate               = 1000000U;
+     * flexcanConfig.bitRateFD             = 2000000U;
+     * flexcanConfig.maxMbNum               = 16;
+     * flexcanConfig.enableLoopBack         = false;
+     * flexcanConfig.enableSelfWakeup       = false;
+     * flexcanConfig.enableIndividMask      = false;
+     * flexcanConfig.disableSelfReception   = false;
+     * flexcanConfig.enableListenOnlyMode   = false;
+     * flexcanConfig.enableDoze             = false;
+     */
     FLEXCAN_GetDefaultConfig(&flexcanConfig);
 
     /* 修改配置：禁用自我接收 */
@@ -1232,13 +1301,13 @@ void UART_Configure(void)
     config.enableTx     = true;
     config.enableRx     = true;
 
-    LPUART_Init(LPUART4, &config, DEMO_LPUART_CLK_FREQ);
+    LPUART_Init(DEMO_LPUART, &config, DEMO_LPUART_CLK_FREQ);
 
     /* Send g_tipString out. */
-    LPUART_WriteBlocking(LPUART4, g_tipString, sizeof(g_tipString) / sizeof(g_tipString[0]));
+    LPUART_WriteBlocking(DEMO_LPUART, g_tipString, sizeof(g_tipString) / sizeof(g_tipString[0]));
 
     /* Enable RX interrupt. */
-    LPUART_EnableInterrupts(LPUART4, kLPUART_RxDataRegFullInterruptEnable);
+    LPUART_EnableInterrupts(DEMO_LPUART, kLPUART_RxDataRegFullInterruptEnable);
     NVIC_SetPriority(DEMO_LPUART_IRQn, configLIBRARY_MAX_SYSCALL_INTERRUPT_PRIORITY + 2); 
     EnableIRQ(DEMO_LPUART_IRQn);
 

@@ -1,9 +1,0 @@
-../drivers/fsl_clock.h:1394:20:CLOCK_EnableClock	24	static
-../drivers/fsl_clock.h:1420:20:CLOCK_DisableClock	24	static
-../drivers/fsl_dac.h:257:20:DAC_SetReset	16	static
-../drivers/fsl_dac.h:271:20:DAC_ClearReset	16	static
-../drivers/fsl_dac.h:284:20:DAC_Enable	16	static
-../drivers/fsl_dac.c:54:17:DAC_GetInstance	24	static
-../drivers/fsl_dac.c:80:6:DAC_Init	24	static
-../drivers/fsl_dac.c:186:6:DAC_GetDefaultConfig	16	static
-../drivers/fsl_dac.c:227:6:DAC_Deinit	16	static
