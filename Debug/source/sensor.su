@@ -1,0 +1,2 @@
+D:\Project\ME Box\PS_pfc\SourceCode\frdmmcxn947_freertos_v1.0.3\drivers/fsl_lpadc.h:1082:20:LPADC_DoSoftwareTrigger	16	static
+../source/sensor.c:18:6:readSensor	8	static

@@ -1,0 +1,41 @@
+D:\Project\ME Box\PS_pfc\SourceCode\frdmmcxn947_freertos_v1.0.1\drivers/fsl_clock.h:1394:20:CLOCK_EnableClock	24	static
+D:\Project\ME Box\PS_pfc\SourceCode\frdmmcxn947_freertos_v1.0.1\drivers/fsl_gpio.h:388:20:GPIO_PortToggle	16	static
+D:\Project\ME Box\PS_pfc\SourceCode\frdmmcxn947_freertos_v1.0.1\drivers/fsl_lpuart.h:869:23:LPUART_ReadByte	32	static
+D:\Project\ME Box\PS_pfc\SourceCode\frdmmcxn947_freertos_v1.0.1\drivers/fsl_lpadc.h:1082:20:LPADC_DoSoftwareTrigger	16	static
+D:\Project\ME Box\PS_pfc\SourceCode\frdmmcxn947_freertos_v1.0.1\drivers/fsl_spc.h:1039:20:SPC_EnableActiveModeAnalogModules	16	static
+D:\Project\ME Box\PS_pfc\SourceCode\frdmmcxn947_freertos_v1.0.1\drivers/fsl_dac.h:284:20:DAC_Enable	16	static
+D:\Project\ME Box\PS_pfc\SourceCode\frdmmcxn947_freertos_v1.0.1\drivers/fsl_dac.h:393:20:DAC_SetData	16	static
+../source/freertos_generic.c:239:13:buffer_is_full	16	static
+../source/freertos_generic.c:243:13:buffer_is_empty	16	static
+../source/freertos_generic.c:247:13:buffer_push	16	static
+../source/freertos_generic.c:258:13:buffer_pop	16	static
+../source/freertos_generic.c:270:6:LPUART_UserCallback	32	static
+../source/freertos_generic.c:298:5:main	24	static
+../source/freertos_generic.c:440:13:vExampleTimerCallback	16	static
+../source/freertos_generic.c:452:13:prvQueueSendTask	24	static
+../source/freertos_generic.c:479:13:prvQueueReceiveTask	24	static
+../source/freertos_generic.c:504:13:prvEventSemaphoreTask	16	static
+../source/freertos_generic.c:524:6:vApplicationTickHook	16	static
+../source/freertos_generic.c:562:6:vApplicationMallocFailedHook	4	static
+../source/freertos_generic.c:579:6:vApplicationStackOverflowHook	16	static
+../source/freertos_generic.c:596:6:vApplicationIdleHook	16	static
+../source/freertos_generic.c:617:6:UART_Configure	8	static
+../source/freertos_generic.c:636:6:GPIO_Configure	8	static
+../source/freertos_generic.c:645:13:prvUartRxTask	24	static
+../source/freertos_generic.c:777:13:processReceivedCommand	288	static
+../source/freertos_generic.c:836:13:handle_SS_RLY_EN_Command	8	static
+../source/freertos_generic.c:841:13:handle_SS_PLY_DIS_Command	8	static
+../source/freertos_generic.c:845:13:handle_PFC1_EN_Command	8	static
+../source/freertos_generic.c:850:13:handle_PFC1_DIS_Command	8	static
+../source/freertos_generic.c:854:13:handle_PFC2_EN_Command	8	static
+../source/freertos_generic.c:859:13:handle_PFC2_DIS_Command	8	static
+../source/freertos_generic.c:864:13:handle_PFC1_FLT_EN_Command	8	static
+../source/freertos_generic.c:869:13:handle_PFC1_FLT_DIS_Command	8	static
+../source/freertos_generic.c:873:13:handle_PFC2_FLT_EN_Command	8	static
+../source/freertos_generic.c:878:13:handle_PFC2_FLT_DIS_Command	8	static
+../source/freertos_generic.c:883:13:handle_DCDC1_EN_Command	8	static
+../source/freertos_generic.c:888:13:handle_DCDC1_DIS_Command	8	static
+../source/freertos_generic.c:892:13:handle_DCDC2_EN_Command	8	static
+../source/freertos_generic.c:897:13:handle_DCDC2_DIS_Command	8	static
+../source/freertos_generic.c:903:6:ADC_Configure	8	static
+../source/freertos_generic.c:964:6:DAC_Configure	8	static
