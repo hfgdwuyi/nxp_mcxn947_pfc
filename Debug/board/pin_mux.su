@@ -1,8 +1,8 @@
-D:\Project\ME Box\PS_pfc\SourceCode\frdmmcxn947_freertos_v1.0.3\CMSIS/core_cm33.h:2390:22:__NVIC_EnableIRQ	16	static
-D:\Project\ME Box\PS_pfc\SourceCode\frdmmcxn947_freertos_v1.0.3\drivers/fsl_clock.h:1394:20:CLOCK_EnableClock	24	static
-D:\Project\ME Box\PS_pfc\SourceCode\frdmmcxn947_freertos_v1.0.3\drivers/fsl_common_arm.h:586:24:EnableIRQ	24	static
-D:\Project\ME Box\PS_pfc\SourceCode\frdmmcxn947_freertos_v1.0.3\drivers/fsl_port.h:360:20:PORT_SetPinConfig	32	static
-D:\Project\ME Box\PS_pfc\SourceCode\frdmmcxn947_freertos_v1.0.3\drivers/fsl_gpio.h:466:20:GPIO_SetPinInterruptConfig	24	static
+D:\Git\nxp_mcxn947_pfc\CMSIS/core_cm33.h:2390:22:__NVIC_EnableIRQ	16	static
+D:\Git\nxp_mcxn947_pfc\drivers/fsl_clock.h:1394:20:CLOCK_EnableClock	24	static
+D:\Git\nxp_mcxn947_pfc\drivers/fsl_common_arm.h:586:24:EnableIRQ	24	static
+D:\Git\nxp_mcxn947_pfc\drivers/fsl_port.h:360:20:PORT_SetPinConfig	32	static
+D:\Git\nxp_mcxn947_pfc\drivers/fsl_gpio.h:466:20:GPIO_SetPinInterruptConfig	24	static
 ../board/pin_mux.c:38:6:BOARD_InitBootPins	8	static
 ../board/pin_mux.c:64:6:BOARD_InitPins	8	static
 ../board/pin_mux.c:88:6:BOARD_InitGPIO	24	static

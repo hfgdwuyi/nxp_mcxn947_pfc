@@ -1,40 +1,40 @@
-D:\Project\ME Box\PS_pfc\SourceCode\frdmmcxn947_freertos_v1.0.3\CMSIS/core_cm33.h:2390:22:__NVIC_EnableIRQ	16	static
-D:\Project\ME Box\PS_pfc\SourceCode\frdmmcxn947_freertos_v1.0.3\CMSIS/core_cm33.h:2587:22:__NVIC_SetPriority	16	static
-D:\Project\ME Box\PS_pfc\SourceCode\frdmmcxn947_freertos_v1.0.3\drivers/fsl_clock.h:1394:20:CLOCK_EnableClock	24	static
-D:\Project\ME Box\PS_pfc\SourceCode\frdmmcxn947_freertos_v1.0.3\drivers/fsl_common_arm.h:586:24:EnableIRQ	24	static
-D:\Project\ME Box\PS_pfc\SourceCode\frdmmcxn947_freertos_v1.0.3\drivers/fsl_common_arm.h:804:24:DisableGlobalIRQ	16	static
-D:\Project\ME Box\PS_pfc\SourceCode\frdmmcxn947_freertos_v1.0.3\drivers/fsl_common_arm.h:830:20:EnableGlobalIRQ	24	static
-D:\Project\ME Box\PS_pfc\SourceCode\frdmmcxn947_freertos_v1.0.3\drivers/fsl_gpio.h:388:20:GPIO_PortToggle	16	static
-D:\Project\ME Box\PS_pfc\SourceCode\frdmmcxn947_freertos_v1.0.3\drivers/fsl_lpuart.h:869:23:LPUART_ReadByte	32	static
-D:\Project\ME Box\PS_pfc\SourceCode\frdmmcxn947_freertos_v1.0.3\drivers/fsl_spc.h:1039:20:SPC_EnableActiveModeAnalogModules	16	static
-D:\Project\ME Box\PS_pfc\SourceCode\frdmmcxn947_freertos_v1.0.3\drivers/fsl_dac.h:284:20:DAC_Enable	16	static
-D:\Project\ME Box\PS_pfc\SourceCode\frdmmcxn947_freertos_v1.0.3\drivers/fsl_flexcan.h:1663:20:FLEXCAN_EnableInterrupts	40	static
-../source/main.c:280:6:GPIO00_IRQHandler	8	static
-../source/main.c:290:13:buffer_is_full	16	static
-../source/main.c:294:13:buffer_is_empty	16	static
-../source/main.c:298:13:buffer_push	16	static
-../source/main.c:309:13:buffer_pop	16	static
-../source/main.c:320:6:LP_FLEXCOMM4_IRQHandler	24	static
-../source/main.c:369:6:LPUART_UserCallback	32	static
-../source/main.c:418:8:flexcan_callback	64	static
-../source/main.c:481:6:delayWwdtWindow	4	static
-../source/main.c:497:5:main	24	static
-../source/main.c:699:13:vExampleTimerCallback	16	static
-../source/main.c:719:13:prvQueueSendTask	24	static
-../source/main.c:738:13:prvQueueReceiveTask	24	static
-../source/main.c:763:13:prvEventSemaphoreTask	16	static
-../source/main.c:782:6:vApplicationTickHook	16	static
-../source/main.c:820:6:vApplicationMallocFailedHook	8	static
-../source/main.c:839:6:vApplicationStackOverflowHook	16	static
-../source/main.c:856:6:vApplicationIdleHook	16	static
-../source/main.c:883:13:prvUartRxTask	280	static
-../source/main.c:905:13:prvDisplayTask	32	static
-../source/main.c:936:13:prvSensorTask	16	static
-../source/main.c:945:13:vTaskCANRx	40	static
-../source/main.c:973:13:vTaskCANTx	32	static
-../source/main.c:1003:6:ADC_Configure	8	static
-../source/main.c:1188:6:DAC_Configure	8	static
-../source/main.c:1208:6:CAN_Configure	32	static
-../source/main.c:1278:6:UART_Configure	8	static
-../source/main.c:1317:6:WWDT_Configure	32	static
-../source/main.c:1343:6:PWM_Configure	4	static
+D:\Git\nxp_mcxn947_pfc\CMSIS/core_cm33.h:2390:22:__NVIC_EnableIRQ	16	static
+D:\Git\nxp_mcxn947_pfc\CMSIS/core_cm33.h:2587:22:__NVIC_SetPriority	16	static
+D:\Git\nxp_mcxn947_pfc\drivers/fsl_clock.h:1394:20:CLOCK_EnableClock	24	static
+D:\Git\nxp_mcxn947_pfc\drivers/fsl_common_arm.h:586:24:EnableIRQ	24	static
+D:\Git\nxp_mcxn947_pfc\drivers/fsl_common_arm.h:804:24:DisableGlobalIRQ	16	static
+D:\Git\nxp_mcxn947_pfc\drivers/fsl_common_arm.h:830:20:EnableGlobalIRQ	24	static
+D:\Git\nxp_mcxn947_pfc\drivers/fsl_gpio.h:388:20:GPIO_PortToggle	16	static
+D:\Git\nxp_mcxn947_pfc\drivers/fsl_lpuart.h:869:23:LPUART_ReadByte	32	static
+D:\Git\nxp_mcxn947_pfc\drivers/fsl_spc.h:1039:20:SPC_EnableActiveModeAnalogModules	16	static
+D:\Git\nxp_mcxn947_pfc\drivers/fsl_dac.h:284:20:DAC_Enable	16	static
+D:\Git\nxp_mcxn947_pfc\drivers/fsl_flexcan.h:1663:20:FLEXCAN_EnableInterrupts	40	static
+../source/main.c:278:6:GPIO00_IRQHandler	8	static
+../source/main.c:288:13:buffer_is_full	16	static
+../source/main.c:292:13:buffer_is_empty	16	static
+../source/main.c:296:13:buffer_push	16	static
+../source/main.c:307:13:buffer_pop	16	static
+../source/main.c:318:6:LP_FLEXCOMM4_IRQHandler	24	static
+../source/main.c:367:6:LPUART_UserCallback	32	static
+../source/main.c:416:8:flexcan_callback	64	static
+../source/main.c:479:6:delayWwdtWindow	4	static
+../source/main.c:495:5:main	24	static
+../source/main.c:697:13:vExampleTimerCallback	16	static
+../source/main.c:717:13:prvQueueSendTask	24	static
+../source/main.c:736:13:prvQueueReceiveTask	24	static
+../source/main.c:761:13:prvEventSemaphoreTask	16	static
+../source/main.c:780:6:vApplicationTickHook	16	static
+../source/main.c:818:6:vApplicationMallocFailedHook	8	static
+../source/main.c:837:6:vApplicationStackOverflowHook	16	static
+../source/main.c:854:6:vApplicationIdleHook	16	static
+../source/main.c:881:13:prvUartRxTask	280	static
+../source/main.c:903:13:prvDisplayTask	32	static
+../source/main.c:934:13:prvSensorTask	16	static
+../source/main.c:943:13:vTaskCANRx	40	static
+../source/main.c:971:13:vTaskCANTx	32	static
+../source/main.c:1001:6:ADC_Configure	8	static
+../source/main.c:1186:6:DAC_Configure	8	static
+../source/main.c:1206:6:CAN_Configure	32	static
+../source/main.c:1264:6:UART_Configure	8	static
+../source/main.c:1303:6:WWDT_Configure	32	static
+../source/main.c:1329:6:PWM_Configure	4	static

@@ -1,5 +1,5 @@
-D:\Project\ME Box\PS_pfc\SourceCode\frdmmcxn947_freertos_v1.0.3\CMSIS/core_cm33.h:2390:22:__NVIC_EnableIRQ	16	static
-D:\Project\ME Box\PS_pfc\SourceCode\frdmmcxn947_freertos_v1.0.3\CMSIS/core_cm33.h:2481:22:__NVIC_ClearPendingIRQ	16	static
+D:\Git\nxp_mcxn947_pfc\CMSIS/core_cm33.h:2390:22:__NVIC_EnableIRQ	16	static
+D:\Git\nxp_mcxn947_pfc\CMSIS/core_cm33.h:2481:22:__NVIC_ClearPendingIRQ	16	static
 ../drivers/fsl_clock.h:1394:20:CLOCK_EnableClock	24	static
 ../drivers/fsl_clock.h:1420:20:CLOCK_DisableClock	24	static
 ../drivers/fsl_common_arm.h:586:24:EnableIRQ	24	static

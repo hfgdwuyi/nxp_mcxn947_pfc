@@ -1,4 +1,4 @@
-D:\Project\ME Box\PS_pfc\SourceCode\frdmmcxn947_freertos_v1.0.3\CMSIS/core_cm33.h:2390:22:__NVIC_EnableIRQ	16	static
+D:\Git\nxp_mcxn947_pfc\CMSIS/core_cm33.h:2390:22:__NVIC_EnableIRQ	16	static
 ../drivers/fsl_common_arm.h:586:24:EnableIRQ	24	static
 ../drivers/fsl_common_arm.h:804:24:DisableGlobalIRQ	16	static
 ../drivers/fsl_common_arm.h:830:20:EnableGlobalIRQ	24	static

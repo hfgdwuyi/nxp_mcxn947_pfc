@@ -1,5 +1,5 @@
-D:\Project\ME Box\PS_pfc\SourceCode\frdmmcxn947_freertos_v1.0.3\drivers/fsl_gpio.h:358:20:GPIO_PortSet	16	static
-D:\Project\ME Box\PS_pfc\SourceCode\frdmmcxn947_freertos_v1.0.3\drivers/fsl_gpio.h:373:20:GPIO_PortClear	16	static
+D:\Git\nxp_mcxn947_pfc\drivers/fsl_gpio.h:358:20:GPIO_PortSet	16	static
+D:\Git\nxp_mcxn947_pfc\drivers/fsl_gpio.h:373:20:GPIO_PortClear	16	static
 ../source/lcd.c:160:6:delay	24	static
 ../source/lcd.c:168:6:transfer_command_lcd	24	static
 ../source/lcd.c:187:6:transfer_data_lcd	24	static

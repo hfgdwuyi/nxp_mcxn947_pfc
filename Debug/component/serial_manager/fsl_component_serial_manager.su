@@ -1,5 +1,5 @@
-D:\Project\ME Box\PS_pfc\SourceCode\frdmmcxn947_freertos_v1.0.3\drivers/fsl_common_arm.h:804:24:DisableGlobalIRQ	16	static
-D:\Project\ME Box\PS_pfc\SourceCode\frdmmcxn947_freertos_v1.0.3\drivers/fsl_common_arm.h:830:20:EnableGlobalIRQ	24	static
+D:\Git\nxp_mcxn947_pfc\drivers/fsl_common_arm.h:804:24:DisableGlobalIRQ	16	static
+D:\Git\nxp_mcxn947_pfc\drivers/fsl_common_arm.h:830:20:EnableGlobalIRQ	24	static
 ../component/serial_manager/fsl_component_serial_manager.c:426:32:SerialManager_StartWriting	32	static
 ../component/serial_manager/fsl_component_serial_manager.c:488:32:SerialManager_StartReading	32	static
 ../component/serial_manager/fsl_component_serial_manager.c:1244:32:SerialManager_Write	32	static

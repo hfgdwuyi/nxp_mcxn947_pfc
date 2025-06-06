@@ -1,4 +1,4 @@
-D:\Project\ME Box\PS_pfc\SourceCode\frdmmcxn947_freertos_v1.0.3\drivers/fsl_clock.h:1394:20:CLOCK_EnableClock	24	static
+D:\Git\nxp_mcxn947_pfc\drivers/fsl_clock.h:1394:20:CLOCK_EnableClock	24	static
 ../board/clock_config.c:54:6:BOARD_InitBootClocks	8	static
 ../board/clock_config.c:90:6:BOARD_BootClockFRO12M	24	static
 ../board/clock_config.c:157:6:BOARD_BootClockFROHF48M	24	static

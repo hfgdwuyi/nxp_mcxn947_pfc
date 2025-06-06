@@ -6,7 +6,7 @@
  * Generated linker script file for MCXN947
  * Created from library.ldt by FMCreateLinkLibraries
  * Using Freemarker v2.3.30
- * MCUXpresso IDE v24.9 [Build 25] [2024-09-26] on 2025年6月5日 下午1:21:12
+ * MCUXpresso IDE v24.9 [Build 25] [2024-09-26] on 2025年6月6日 上午10:05:22
  */
 
 GROUP (
