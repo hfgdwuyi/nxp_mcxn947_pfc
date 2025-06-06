@@ -478,10 +478,6 @@ static FLEXCAN_CALLBACK(flexcan_callback)
 
 void delayWwdtWindow(void)
 {
-    /* For the TV counter register value will decrease after feed watch dog,
-     * we can use it to as delay. But in user scene, user need feed watch dog
-     * in the time period after enter Window but before warning intterupt.
-     */
     while (WWDT0->TV > WWDT0->WINDOW)
     {
         __NOP();
@@ -559,24 +555,10 @@ int main(void)
     event semaphore task. */
     vSemaphoreCreateBinary(xEventSemaphore);
 
-    /* Create the queue receive task as described in the comments at the top
-    of this    file. */
-    if (xTaskCreate(/* The function that implements the task. */
-                    prvQueueReceiveTask,
-                    /* Text name for the task, just to help debugging. */
-                    "Rx",
-                    /* The size (in words) of the stack that should be created
-                    for the task. */
-                    configMINIMAL_STACK_SIZE + 166,
-                    /* A parameter that can be passed into the task.  Not used
-                    in this simple demo. */
-                    NULL,
-                    /* The priority to assign to the task.  tskIDLE_PRIORITY
-                    (which is 0) is the lowest priority.  configMAX_PRIORITIES - 1
-                    is the highest priority. */
+
+    if (xTaskCreate(
+                    prvQueueReceiveTask,"Rx",configMINIMAL_STACK_SIZE + 166,NULL,
                     mainQUEUE_RECEIVE_TASK_PRIORITY,
-                    /* Used to obtain a handle to the created task.  Not used in
-                    this simple demo, so set to NULL. */
                     NULL) != pdPASS)
     {
         PRINTF("Task creation failed!.\r\n");
@@ -584,8 +566,7 @@ int main(void)
             ;
     }
 
-    /* Create the queue send task in exactly the same way.  Again, this is
-    described in the comments at the top of the file. */
+
     if (xTaskCreate(prvQueueSendTask, "TX", configMINIMAL_STACK_SIZE + 166, NULL, mainQUEUE_SEND_TASK_PRIORITY, NULL) !=
         pdPASS)
     {
@@ -594,8 +575,7 @@ int main(void)
             ;
     }
 
-    /* Create the queue send task in exactly the same way.  Again, this is
-        described in the comments at the top of the file. */
+
 	if (xTaskCreate(prvUartRxTask, "command", 512, NULL, mainQUEUE_SEND_TASK_PRIORITY, NULL) !=
 		pdPASS)
 	{
@@ -799,17 +779,6 @@ void vApplicationTickHook(void)
         xSemaphoreGiveFromISR(xEventSemaphore, &xHigherPriorityTaskWoken);
         ulCount = 0UL;
     }
-
-    /* If xHigherPriorityTaskWoken is pdTRUE then a context switch should
-    normally be performed before leaving the interrupt (because during the
-    execution of the interrupt a task of equal or higher priority than the
-    running task was unblocked).  The syntax required to context switch from
-    an interrupt is port dependent, so check the documentation of the port you
-    are using.
-
-    In this case, the function is running in the context of the tick interrupt,
-    which will automatically check for the higher priority task to run anyway,
-    so no further action is required. */
 }
 
 /*!
@@ -817,15 +786,6 @@ void vApplicationTickHook(void)
  */
 void vApplicationMallocFailedHook(void)
 {
-    /* The malloc failed hook is enabled by setting
-    configUSE_MALLOC_FAILED_HOOK to 1 in FreeRTOSConfig.h.
-
-    Called if a call to pvPortMalloc() fails because there is insufficient
-    free memory available in the FreeRTOS heap.  pvPortMalloc() is called
-    internally by FreeRTOS API functions that create tasks, queues, software
-    timers, and semaphores.  The size of the FreeRTOS heap is set by the
-    configTOTAL_HEAP_SIZE configuration constant in FreeRTOSConfig.h. */
-
     PRINTF("Memory allocation failed!\r\n");
     for (;;)
         ;
@@ -838,12 +798,6 @@ void vApplicationStackOverflowHook(TaskHandle_t xTask, char *pcTaskName)
 {
     (void)pcTaskName;
     (void)xTask;
-
-    /* Run time stack overflow checking is performed if
-    configconfigCHECK_FOR_STACK_OVERFLOW is defined to 1 or 2.  This hook
-    function is called if a stack overflow is detected.  pxCurrentTCB can be
-    inspected in the debugger if the task name passed into this function is
-    corrupt. */
     for (;;)
         ;
 }
@@ -855,20 +809,11 @@ void vApplicationIdleHook(void)
 {
     volatile size_t xFreeStackSpace;
 
-    /* The idle task hook is enabled by setting configUSE_IDLE_HOOK to 1 in
-    FreeRTOSConfig.h.
-
-    This function is called on each cycle of the idle task.  In this case it
-    does nothing useful, other than report the amount of FreeRTOS heap that
-    remains unallocated. */
     xFreeStackSpace = xPortGetFreeHeapSize();
 
     if (xFreeStackSpace > 100)
     {
-        /* By now, the kernel has allocated everything it is going to, so
-        if there is a lot of heap remaining unallocated then
-        the value of configTOTAL_HEAP_SIZE in FreeRTOSConfig.h can be
-        reduced accordingly. */
+
     }
 }
 
