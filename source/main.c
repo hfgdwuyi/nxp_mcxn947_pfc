@@ -91,7 +91,6 @@ converted to ticks using the portTICK_PERIOD_MS constant. */
 #define EXAMPLE_FLEXCAN_IRQHandler CAN0_IRQHandler
 
 
-// #define LPUART4          LPUART4
 #define LPUART_CLK_FREQ CLOCK_GetLPFlexCommClkFreq(4u)
 #define BUFFER_SIZE          256
 #define RX_BUFFER_SIZE 		256
@@ -107,7 +106,7 @@ converted to ticks using the portTICK_PERIOD_MS constant. */
 #define CAN_CLK_FREQ       CLOCK_GetFlexcanClkFreq(0U)
 #define USE_IMPROVED_TIMING_CONFIG (1)
 
-#define DEMO_LPUART            LPUART4
+
 #define DEMO_LPUART_CLK_FREQ   CLOCK_GetLPFlexCommClkFreq(4u)
 #define DEMO_LPUART_IRQn       LP_FLEXCOMM4_IRQn
 #define DEMO_LPUART_IRQHandler LP_FLEXCOMM4_IRQHandler
@@ -322,13 +321,13 @@ void DEMO_LPUART_IRQHandler(void)
     BaseType_t xHigherPriorityTaskWoken = pdFALSE;
     static uart_message_t msg = {0};
     static uint16_t bufIndex = 0;
-    uint32_t statusFlags = LPUART_GetStatusFlags(DEMO_LPUART);
+    uint32_t statusFlags = LPUART_GetStatusFlags(LPUART4);
 
     /* 仅处理接收中断 */
     if (statusFlags & kLPUART_RxDataRegFullFlag)
     {
-        uint8_t ch = LPUART_ReadByte(DEMO_LPUART);
-        LPUART_ClearStatusFlags(DEMO_LPUART, kLPUART_RxDataRegFullFlag); // 清除接收标志
+        uint8_t ch = LPUART_ReadByte(LPUART4);
+        LPUART_ClearStatusFlags(LPUART4, kLPUART_RxDataRegFullFlag); // 清除接收标志
         
         /* 临界区保护（防止任务同时访问msg） */
          taskENTER_CRITICAL_FROM_ISR();
@@ -1301,13 +1300,13 @@ void UART_Configure(void)
     config.enableTx     = true;
     config.enableRx     = true;
 
-    LPUART_Init(DEMO_LPUART, &config, DEMO_LPUART_CLK_FREQ);
+    LPUART_Init(LPUART4, &config, DEMO_LPUART_CLK_FREQ);
 
     /* Send g_tipString out. */
-    LPUART_WriteBlocking(DEMO_LPUART, g_tipString, sizeof(g_tipString) / sizeof(g_tipString[0]));
+    LPUART_WriteBlocking(LPUART4, g_tipString, sizeof(g_tipString) / sizeof(g_tipString[0]));
 
     /* Enable RX interrupt. */
-    LPUART_EnableInterrupts(DEMO_LPUART, kLPUART_RxDataRegFullInterruptEnable);
+    LPUART_EnableInterrupts(LPUART4, kLPUART_RxDataRegFullInterruptEnable);
     NVIC_SetPriority(DEMO_LPUART_IRQn, configLIBRARY_MAX_SYSCALL_INTERRUPT_PRIORITY + 2); 
     EnableIRQ(DEMO_LPUART_IRQn);
 
