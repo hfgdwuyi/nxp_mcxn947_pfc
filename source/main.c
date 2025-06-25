@@ -52,11 +52,16 @@ to be available here. */
 #include "fsl_flexio.h"
 #include "fsl_common.h"
 #include "fsl_ctimer.h"
+#include "fsl_pwm.h"
 #include "main.h"
 #include "command.h"
 #include "lcd.h"
 #include "sensor.h"
 #include "can.h"
+#include "key.h"
+#include "fan.h"
+
+#include "math.h"
 /*******************************************************************************
  * Definitions
  ******************************************************************************/
@@ -83,12 +88,12 @@ the queue empty. */
 
 /* The rate at which data is sent to the queue, specified in milliseconds, and
 converted to ticks using the portTICK_PERIOD_MS constant. */
-#define LV_CAN_PERIOD 500
+// #define LV_CAN_PERIOD 500
 
 
 
-#define EXAMPLE_FLEXCAN_IRQn       CAN0_IRQn
-#define EXAMPLE_FLEXCAN_IRQHandler CAN0_IRQHandler
+// #define EXAMPLE_FLEXCAN_IRQn       CAN0_IRQn
+// #define EXAMPLE_FLEXCAN_IRQHandler CAN0_IRQHandler
 
 
 #define LPUART_CLK_FREQ CLOCK_GetLPFlexCommClkFreq(4u)
@@ -111,17 +116,25 @@ converted to ticks using the portTICK_PERIOD_MS constant. */
 #define DEMO_LPUART_IRQn       LP_FLEXCOMM4_IRQn
 #define DEMO_LPUART_IRQHandler LP_FLEXCOMM4_IRQHandler
 
-#define BOARD_SW3_NAME        "SW3"
-#define BOARD_SW3_IRQ         GPIO00_IRQn
-#define BOARD_SW3_IRQ_HANDLER GPIO00_IRQHandler
+// #define BOARD_SW3_NAME        "SW3"
+// #define BOARD_SW3_IRQ         GPIO00_IRQn
+// #define BOARD_SW3_IRQ_HANDLER GPIO00_IRQHandler
 
 
-#define CTIMER          CTIMER0         /* Timer 0 */
-#define CTIMER_MAT_OUT  kCTIMER_Match_0 /* Match output 0 */
-#define CTIMER_CLK_FREQ CLOCK_GetCTimerClkFreq(0U)
-#ifndef CTIMER_MAT_PWM_PERIOD_CHANNEL
-#define CTIMER_MAT_PWM_PERIOD_CHANNEL kCTIMER_Match_3
-#endif
+// #define CTIMER          CTIMER0         /* Timer 0 */
+// #define CTIMER_MAT_OUT  kCTIMER_Match_0 /* Match output 0 */
+// #define CTIMER_CLK_FREQ CLOCK_GetCTimerClkFreq(0U)
+// #ifndef CTIMER_MAT_PWM_PERIOD_CHANNEL
+// #define CTIMER_MAT_PWM_PERIOD_CHANNEL kCTIMER_Match_3
+// #endif
+
+#define BOARD_PWM_BASEADDR        PWM1
+#define PWM_SRC_CLK_FREQ          CLOCK_GetFreq(kCLOCK_BusClk)
+#define DEMO_PWM_FAULT_LEVEL      true
+#define APP_DEFAULT_PWM_FREQUENCY (10000UL)
+
+
+
 
 /*******************************************************************************
  * Prototypes
@@ -130,22 +143,17 @@ converted to ticks using the portTICK_PERIOD_MS constant. */
  * The queue send and receive tasks as described in the comments at the top of
  * this file.
  */
-static void prvQueueReceiveTask(void *pvParameters);
-static void prvQueueSendTask(void *pvParameters);
 static void prvUartRxTask(void *pvParameters);
 static void prvDisplayTask(void *pvParameters);
 static void prvSensorTask(void *pvParameters);
+static void prvKeyTask(void *pvParameters);
+static void prvFanTask(void *pvParameters);
 
 /*
  * The callback function assigned to the example software timer as described at
  * the top of this file.
  */
-static void vExampleTimerCallback(TimerHandle_t xTimer);
-
-/*
- * The event semaphore task as described at the top of this file.
- */
-static void prvEventSemaphoreTask(void *pvParameters);
+static void vLedTimerCallback(TimerHandle_t xTimer);
 
 
 
@@ -160,6 +168,7 @@ static void DAC_Configure(void);
 static void CAN_Configure(void);
 static void WWDT_Configure(void);
 static void PWM_Configure(void);
+static void PWM_DRV_Init3PhPwm(void);
 /*******************************************************************************
  * Globals
  ******************************************************************************/
@@ -217,6 +226,8 @@ lpadc_conv_result_t resultStruct[8];
 vref_config_t vrefConfig;
 uint16_t adcValue[9];
 
+
+
 dac_config_t dacConfigStruct;
 
 
@@ -255,6 +266,8 @@ typedef struct {
 QueueHandle_t xUartRxQueue;     // UART接收队列
 SemaphoreHandle_t xUartTxMutex; // UART发送互斥量
 
+QueueHandle_t xKeyMessageQueue;
+
 /* 任务函数原型 */
 static void vTaskCANRx(void *pvParameters);
 static void vTaskCANTx(void *pvParameters);
@@ -269,6 +282,46 @@ volatile uint32_t g_pwmPeriod   = 0U;
 volatile uint32_t g_pulsePeriod = 0U;
 
 
+
+typedef enum {
+    POWER_STATE_INIT,       // 初始化
+    POWER_STATE_SELFCHECK,  // 自检中
+    POWER_STATE_SOFTSTART,  // 软启动中
+    POWER_STATE_PFC_READY,  // PFC准备中
+    POWER_STATE_RUNNING     // 正常运行
+} PowerState_t;
+
+// 全局状态变量
+static PowerState_t g_powerState = POWER_STATE_INIT;
+static bool g_relayStatus = false;  // 继电器状态
+static bool g_pfcStatus = false;    // PFC状态
+
+// 任务句柄
+TaskHandle_t xTaskSelfCheck = NULL;
+TaskHandle_t xTaskSoftStart = NULL;
+TaskHandle_t xTaskPFCControl = NULL;
+TaskHandle_t xTaskDCControl = NULL;
+
+// 定时器句柄
+TimerHandle_t xRelayTimer = NULL;
+TimerHandle_t xPFCTimer = NULL;
+TimerHandle_t xDCTimer = NULL;
+
+
+
+
+static void prvSelfCheckTask(void *pvParameters);
+static void prvSoftStartTask(void *pvParameters);
+static void prvPFCControlTask(void *pvParameters);
+static void prvDCControlTask(void *pvParameters);
+static void vSoftStartTimerCallback(TimerHandle_t xTimer);
+static void vPFCTimerCallback(TimerHandle_t xTimer);
+static void vDCTimerCallback(TimerHandle_t xTimer);
+static bool CheckInputVoltage(void);
+// static bool CheckTemperature(void);
+static void enableSoftStart(bool enable);
+static void enablePFC(bool enable);
+static void enableDC(bool enable);
 
 /*******************************************************************************
  * Code
@@ -490,12 +543,52 @@ void delayWwdtWindow(void)
 }
 
 
+static void PWM_DRV_Init3PhPwm(void)
+{
+    uint16_t deadTimeVal;
+    pwm_signal_param_t pwmSignal[2];
+    uint32_t pwmSourceClockInHz;
+    uint32_t pwmFrequencyInHz = APP_DEFAULT_PWM_FREQUENCY;
+
+    pwmSourceClockInHz = PWM_SRC_CLK_FREQ;
+
+    /* Set deadtime count, we set this to about 650ns */
+    deadTimeVal = ((uint64_t)pwmSourceClockInHz * 650) / 1000000000;
+
+    pwmSignal[0].pwmChannel       = kPWM_PwmA;
+    pwmSignal[0].level            = kPWM_HighTrue;
+    pwmSignal[0].dutyCyclePercent = 50; /* 1 percent dutycycle */
+    pwmSignal[0].faultState       = kPWM_PwmFaultState0;
+    pwmSignal[0].pwmchannelenable = true;
+
+    pwmSignal[1].pwmChannel = kPWM_PwmB;
+    pwmSignal[1].level      = kPWM_HighTrue;
+    /* Dutycycle field of PWM B does not matter as we are running in PWM A complementary mode */
+    pwmSignal[1].dutyCyclePercent = 50;
+    pwmSignal[1].deadtimeValue    = deadTimeVal;
+    pwmSignal[1].faultState       = kPWM_PwmFaultState0;
+    pwmSignal[1].pwmchannelenable = true;
+
+    /*********** PWMA_SM0 - phase A, configuration, setup 2 channel as an example ************/
+    PWM_SetupPwm(BOARD_PWM_BASEADDR, kPWM_Module_0, pwmSignal, 2., kPWM_SignedCenterAligned, pwmFrequencyInHz,
+                 pwmSourceClockInHz);
+
+
+    /*********** PWMA_SM2 - phase C configuration, setup PWM A channel only ************/
+
+    PWM_SetupPwm(BOARD_PWM_BASEADDR, kPWM_Module_3, pwmSignal, 2, kPWM_SignedCenterAligned, pwmFrequencyInHz,
+                 pwmSourceClockInHz);
+}
+
+
+
+
 /*!
  * @brief Main function
  */
 int main(void)
 {
-    TimerHandle_t xExampleSoftwareTimer = NULL;
+    TimerHandle_t xLedTimer = NULL;
 
     /* Init board hardware. */
     /* attach FRO 12M to FLEXCOMM4 (debug console) */
@@ -527,6 +620,11 @@ int main(void)
     /* Use FRO HF clock for some of the Ctimers */
     CLOCK_SetClkDiv(kCLOCK_DivCtimer0Clk, 1u);
     CLOCK_AttachClk(kFRO_HF_to_CTIMER0);
+
+    /* Enable PWM1 SUB Clockn */
+	SYSCON->PWM1SUBCTL |=
+		(SYSCON_PWM1SUBCTL_CLK0_EN_MASK | SYSCON_PWM1SUBCTL_CLK1_EN_MASK
+		|SYSCON_PWM1SUBCTL_CLK2_EN_MASK | SYSCON_PWM1SUBCTL_CLK3_EN_MASK);
 
 
     BOARD_InitPins();
@@ -560,130 +658,45 @@ int main(void)
     event semaphore task. */
     vSemaphoreCreateBinary(xEventSemaphore);
 
-    /* Create the queue receive task as described in the comments at the top
-    of this    file. */
-    if (xTaskCreate(/* The function that implements the task. */
-                    prvQueueReceiveTask,
-                    /* Text name for the task, just to help debugging. */
-                    "Rx",
-                    /* The size (in words) of the stack that should be created
-                    for the task. */
-                    configMINIMAL_STACK_SIZE + 166,
-                    /* A parameter that can be passed into the task.  Not used
-                    in this simple demo. */
-                    NULL,
-                    /* The priority to assign to the task.  tskIDLE_PRIORITY
-                    (which is 0) is the lowest priority.  configMAX_PRIORITIES - 1
-                    is the highest priority. */
-                    mainQUEUE_RECEIVE_TASK_PRIORITY,
-                    /* Used to obtain a handle to the created task.  Not used in
-                    this simple demo, so set to NULL. */
-                    NULL) != pdPASS)
-    {
-        PRINTF("Task creation failed!.\r\n");
-        while (1)
-            ;
-    }
-
-    /* Create the queue send task in exactly the same way.  Again, this is
-    described in the comments at the top of the file. */
-    if (xTaskCreate(prvQueueSendTask, "TX", configMINIMAL_STACK_SIZE + 166, NULL, mainQUEUE_SEND_TASK_PRIORITY, NULL) !=
-        pdPASS)
-    {
-        PRINTF("Task creation failed!.\r\n");
-        while (1)
-            ;
-    }
-
-    /* Create the queue send task in exactly the same way.  Again, this is
-        described in the comments at the top of the file. */
-	if (xTaskCreate(prvUartRxTask, "command", 512, NULL, mainQUEUE_SEND_TASK_PRIORITY, NULL) !=
-		pdPASS)
-	{
-		PRINTF("Task creation failed!.\r\n");
-		while (1)
-			;
-	}
-
-    if (xTaskCreate(prvDisplayTask, "display", configMINIMAL_STACK_SIZE + 512, NULL, mainQUEUE_SEND_TASK_PRIORITY, NULL) !=
-		pdPASS)
-	{
-		PRINTF("Task creation failed!.\r\n");
-		while (1)
-			;
-	}
-
-    if (xTaskCreate(prvSensorTask, "sensor", configMINIMAL_STACK_SIZE + 166, NULL, mainQUEUE_SEND_TASK_PRIORITY, NULL) !=
-		pdPASS)
-	{
-		PRINTF("Task creation failed!.\r\n");
-		while (1)
-			;
-	}
-
-
-    xCanRxQueue = xQueueCreate(5, sizeof(can_message_t));  // 接收队列
+    xCanRxQueue = xQueueCreate(5, sizeof(can_message_t));  
     if (xCanRxQueue == NULL) {
         PRINTF("Error: Failed to create CAN Rx queue!\r\n");
-        while(1); // 停止执行
+        while(1); 
         }
 
-    /* 初始化接收队列 */
+
     xUartRxQueue = xQueueCreate(5, sizeof(uart_message_t));
     if (xUartRxQueue == NULL) {
         PRINTF("Error: Failed to create UART Rx queue!\r\n");
-        while(1); // 停止执行
+        while(1); 
         }
 
-    if (xTaskCreate(vTaskCANRx, "CAN_RX", configMINIMAL_STACK_SIZE + 166, NULL, mainQUEUE_SEND_TASK_PRIORITY, NULL) !=
-		pdPASS)
-	{
-		PRINTF("Task creation failed!.\r\n");
-		while (1)
-			;
-	}
-
-    if (xTaskCreate(vTaskCANTx, "CAN_TX", configMINIMAL_STACK_SIZE + 166, NULL, mainQUEUE_SEND_TASK_PRIORITY, NULL) !=
-		pdPASS)
-	{
-		PRINTF("Task creation failed!.\r\n");
-		while (1)
-			;
-	}
-
-    /* Create the task that is synchronised with an interrupt using the
-    xEventSemaphore semaphore. */
-    if (xTaskCreate(prvEventSemaphoreTask, "Sem", configMINIMAL_STACK_SIZE + 166, NULL,
-                    mainEVENT_SEMAPHORE_TASK_PRIORITY, NULL) != pdPASS)
-    {
-        PRINTF("Task creation failed!.\r\n");
-        while (1)
-            ;
+    xKeyMessageQueue = xQueueCreate(10, sizeof(key_message_t));
+    if (xKeyMessageQueue == NULL) {
+        PRINTF("Failed to create message queue!\n");
     }
+
+
+    xTaskCreate(prvKeyTask, "key", 125, NULL, 2, NULL);
+	xTaskCreate(prvUartRxTask, "command", 512, NULL, 3, NULL);
+    xTaskCreate(prvDisplayTask, "display", 512, NULL, 1, NULL);
+    xTaskCreate(prvSensorTask, "sensor", 1024, NULL, 4, NULL);
+    xTaskCreate(prvFanTask, "fan", 1024, NULL, 2, NULL);
+    xTaskCreate(vTaskCANRx, "CAN_RX", 1024, NULL, 3, NULL);
+    xTaskCreate(vTaskCANTx, "CAN_TX", 1024, NULL, 3, NULL);
+    xTaskCreate(prvSelfCheckTask, "SelfCheck", 256, NULL, 1, &xTaskSelfCheck);
+    xTaskCreate(prvPFCControlTask, "PFCControl", 256, NULL, 1, &xTaskPFCControl);
+    xTaskCreate(prvDCControlTask, "DCControl", 256, NULL, 1, &xTaskDCControl);
 
 
     /* Create the software timer as described in the comments at the top of
     this file. */
-    xExampleSoftwareTimer = xTimerCreate(/* A text name, purely to help
-                                       debugging. */
-                                         "LEDTimer",
-                                         /* The timer period, in this case
-                                         1000ms (1s). */
-                                         mainSOFTWARE_TIMER_PERIOD_MS,
-                                         /* This is a periodic timer, so
-                                         xAutoReload is set to pdTRUE. */
-                                         pdTRUE,
-                                         /* The ID is not used, so can be set
-                                         to anything. */
-                                         (void *)0,
-                                         /* The callback function that switches
-                                         the LED off. */
-                                         vExampleTimerCallback);
+    xLedTimer = xTimerCreate("LEDTimer",
+                            mainSOFTWARE_TIMER_PERIOD_MS,pdTRUE,
+                            (void *)0,
+                            vLedTimerCallback);
 
-    /* Start the created timer.  A block time of zero is used as the timer
-    command queue cannot possibly be full here (this is the first timer to
-    be created, and it is not yet running). */
-    xTimerStart(xExampleSoftwareTimer, 0);
+    xTimerStart(xLedTimer, 0);
 
     /* Start the tasks and timer running. */
     vTaskStartScheduler();
@@ -695,7 +708,7 @@ int main(void)
 /*!
  * @brief Timer callback.
  */
-static void vExampleTimerCallback(TimerHandle_t xTimer)
+static void vLedTimerCallback(TimerHandle_t xTimer)
 {
     /* The timer has expired.  Count the number of times this happens.  The
     timer that calls this function is an auto re-load timer, so it will
@@ -707,73 +720,11 @@ static void vExampleTimerCallback(TimerHandle_t xTimer)
     GPIO_PortToggle(CAN_LED_GPIO, 1u << CAN_LED_RUN_PIN);
     GPIO_PortToggle(CAN_LED_GPIO, 1u << CAN_LED_ERROR_PIN);
 
+    GPIO_PortToggle(BOARD_LED_GPIO, 1u << BOARD_LED_GPIO_PIN);
 
     WWDT_Refresh(WWDT0);
-    
 }
 
-/*!
- * @brief Task prvQueueSendTask periodically sending message.
- */
-static void prvQueueSendTask(void *pvParameters)
-{
-    TickType_t xNextWakeTime;
-    const uint32_t ulValueToSend = 100UL;
-
-    /* Initialise xNextWakeTime - this only needs to be done once. */
-    xNextWakeTime = xTaskGetTickCount();
-
-    for (;;)
-    {
-        vTaskDelayUntil(&xNextWakeTime, mainQUEUE_SEND_PERIOD_MS);
-
-        xQueueSend(xQueue, &ulValueToSend, 0);
-    }
-}
-
-/*!
- * @brief Task prvQueueReceiveTask waiting for message.
- */
-static void prvQueueReceiveTask(void *pvParameters)
-{
-    uint32_t ulReceivedValue = 0L;
-
-    for (;;)
-    {
-        /* Wait until something arrives in the queue - this task will block
-        indefinitely provided INCLUDE_vTaskSuspend is set to 1 in
-        FreeRTOSConfig.h. */
-        xQueueReceive(xQueue, &ulReceivedValue, portMAX_DELAY);
-
-        /*  To get here something must have been received from the queue, but
-        is it the expected value?  If it is, increment the counter. */
-        if (ulReceivedValue == 100UL)
-        {
-            /* Count the number of items that have been received correctly. */
-            ulCountOfItemsReceivedOnQueue++;
-            // PRINTF("Receive message counter: %d.\r\n", ulCountOfItemsReceivedOnQueue);
-        }
-    }
-}
-
-/*!
- * @brief task prvEventSemaphoreTask is waiting for semaphore.
- */
-static void prvEventSemaphoreTask(void *pvParameters)
-{
-    for (;;)
-    {
-        /* Block until the semaphore is 'given'. */
-        if (xSemaphoreTake(xEventSemaphore, portMAX_DELAY) != pdTRUE)
-        {
-            PRINTF("Failed to take semaphore.\r\n");
-        }
-
-        /* Count the number of times the semaphore is received. */
-        ulCountOfReceivedSemaphores++;
-
-    }
-}
 
 /*!
  * @brief tick hook is executed every tick.
@@ -877,7 +828,7 @@ void vApplicationIdleHook(void)
 
 
 /*!
- * @brief Task prvQueueSendTask periodically sending message.
+ * @brief Task prvUartRxTask.
  */
 static void prvUartRxTask(void *pvParameters)
 {
@@ -898,8 +849,150 @@ static void prvUartRxTask(void *pvParameters)
 }
 
 
+static void prvSelfCheckTask(void *pvParameters) {
+    bool voltageOK, tempOK;
+    
+    for (;;) {
+        voltageOK = true;//CheckInputVoltage();
+        tempOK = true;//CheckTemperature();
+        
+        if (voltageOK && tempOK) {
+            g_powerState = POWER_STATE_SOFTSTART;
+            
+            // 创建并启动软启动定时器 (20ms)
+            xRelayTimer = xTimerCreate(
+                "RelayTimer",
+                pdMS_TO_TICKS(20),
+                pdFALSE,
+                (void *)0,
+                vSoftStartTimerCallback
+            );
+            xTimerStart(xRelayTimer, 0);
+
+            // 启动软启动任务
+            xTaskCreate(prvSoftStartTask, "SoftStart", 256, NULL, 2, &xTaskSoftStart);
+
+            vTaskDelete(NULL);
+        } else {
+
+        }
+        
+        vTaskDelay(pdMS_TO_TICKS(5));
+    }
+}
+
+// 检查输入电压 (90-265Vac)
+static bool CheckInputVoltage(void) {
+    return (Vrms.real >= 90.0f && Vrms.real <= 265.0f);
+}
+
+// 检查环境温度
+// static bool CheckTemperature(void) {
+//     float temp = ReadTempSensor();  // 读取温度传感器
+//     return (temp >= -20.0f && temp <= 70.0f);  // 假设温度范围
+// }
+
+
+static void prvSoftStartTask(void *pvParameters) {
+    for (;;) {
+        // 等待软启动完成信号
+        ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
+
+        g_powerState = POWER_STATE_PFC_READY;
+        
+        // 创建并启动PFC定时器 (20ms)
+        xPFCTimer = xTimerCreate(
+            "PFCTimer",
+            pdMS_TO_TICKS(20),
+            pdFALSE,
+            (void *)1,
+            vPFCTimerCallback
+        );
+        xTimerStart(xPFCTimer, 0);
+        
+        vTaskSuspend(NULL);  // 任务挂起
+    }
+}
+
+
+static void vSoftStartTimerCallback(TimerHandle_t xTimer) {
+    enableSoftStart(true);  // 使能软启动继电器
+    g_relayStatus = true;
+    
+    // 10ms后通知PFC任务
+    xTaskNotifyGive(xTaskSoftStart);
+}
+
+// PFC控制任务 - 控制PFC模块
+static void prvPFCControlTask(void *pvParameters) {
+    for (;;) {
+        // 等待PFC启动信号
+        ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
+        
+        enablePFC(true);  // 启动PFC
+        g_pfcStatus = true;
+        g_powerState = POWER_STATE_RUNNING;
+        PRINTF("PFC已启动, 系统正常运行\n");
+
+        // 创建并启动DC定时器 (20ms)
+        xDCTimer = xTimerCreate(
+            "DCTimer",
+            pdMS_TO_TICKS(10),
+            pdFALSE,
+            (void *)1,
+            vDCTimerCallback
+        );
+        xTimerStart(xDCTimer, 0);
+        
+        vTaskSuspend(NULL);  // 任务挂起
+    }
+}
+
+// PFC定时器回调 (20ms后启动PFC)
+static void vPFCTimerCallback(TimerHandle_t xTimer) {
+    PRINTF("PFC延时完成, 准备启动\n");
+    xTaskNotifyGive(xTaskPFCControl);
+}
+
+static void prvDCControlTask(void *pvParameters) {
+    for (;;) {
+        // 等待PFC启动信号
+        ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
+        enableDC(true);  // 启动DC
+        PRINTF("DC已启动, 系统正常运行\n");
+        
+        vTaskSuspend(NULL);  // 任务挂起
+    }
+}
+
+// DC定时器回调 (20ms后启动DC)
+static void vDCTimerCallback(TimerHandle_t xTimer) {
+    PRINTF("DC延时完成, 准备启动\n");
+    xTaskNotifyGive(xTaskDCControl);
+}
+
+
+static void enableSoftStart(bool enable){
+    if(enable){
+        ENABLE_SOFT_START();
+    }
+}
+
+static void enablePFC(bool enable){
+    if(enable){
+        ENABLE_PFC();
+    }
+}
+
+static void enableDC(bool enable){
+    if(enable){
+        ENABLE_DC();
+    }
+}
+
+
 /*!
- * @brief Task prvQueueSendTask periodically sending message.
+ * @brief Task prvDisplayTask periodically displaying message.
  */
 static void prvDisplayTask(void *pvParameters)
 {
@@ -914,7 +1007,7 @@ static void prvDisplayTask(void *pvParameters)
     {
         tick_start = xTaskGetTickCount();
 
-    	Display();
+   	    Display();
 
     	tick_end = xTaskGetTickCount();
 
@@ -930,15 +1023,62 @@ static void prvDisplayTask(void *pvParameters)
 }
 
 /*!
- * @brief Task prvQueueSendTask periodically sending message.
+ * @brief Task prvSensorTask periodically reading.
  */
 static void prvSensorTask(void *pvParameters)
 {
-    for (;;)
-    {
-    	readSensor();
-    }
+    TickType_t tick_start;
+   	TickType_t tick_end;
+   	TickType_t delay_target;
+
+   for (;;)
+   {
+	   tick_start = xTaskGetTickCount();
+
+	   readSensor();
+
+	   tick_end = xTaskGetTickCount();
+
+	   if (tick_end - tick_start >= pdMS_TO_TICKS(LV_SENSOR_DEF_REFR_PERIOD)) {
+			/* The task takes too long to finish, use minimum delay target */
+			delay_target = 1;
+	   } else {
+			delay_target = pdMS_TO_TICKS(LV_SENSOR_DEF_REFR_PERIOD) - (tick_end - tick_start);
+	   }
+
+	vTaskDelay(delay_target);
+   }
+
 }
+
+/*!
+ * @brief Task prvSensorTask periodically reading.
+ */
+static void prvFanTask(void *pvParameters)
+{
+    TickType_t tick_start;
+   	TickType_t tick_end;
+   	TickType_t delay_target;
+
+   for (;;)
+   {
+	   tick_start = xTaskGetTickCount();
+
+	   fanSpeedControl();
+
+	   tick_end = xTaskGetTickCount();
+
+	   if (tick_end - tick_start >= pdMS_TO_TICKS(LV_FAN_DEF_REFR_PERIOD)) {
+			delay_target = 1;
+	   } else {
+			delay_target = pdMS_TO_TICKS(LV_FAN_DEF_REFR_PERIOD) - (tick_end - tick_start);
+	   }
+
+	vTaskDelay(delay_target);
+   }
+
+}
+
 
 
 static void vTaskCANRx(void *pvParameters)
@@ -995,6 +1135,30 @@ static void vTaskCANTx(void *pvParameters)
     }
 }
 
+static void prvKeyTask(void *pvParameters)
+{
+    TickType_t tick_start;
+	TickType_t tick_end;
+	TickType_t delay_target;
+
+    for (;;)
+    {
+        tick_start = xTaskGetTickCount();
+
+   	    keyScan();
+
+    	tick_end = xTaskGetTickCount();
+
+		if (tick_end - tick_start >= pdMS_TO_TICKS(LV_KEY_DEF_REFR_PERIOD)) {
+			delay_target = 1;
+		} else {
+			delay_target = pdMS_TO_TICKS(LV_KEY_DEF_REFR_PERIOD) - (tick_end - tick_start);
+		}
+
+		vTaskDelay(delay_target);
+    }
+}
+
 
 
 
@@ -1003,7 +1167,6 @@ void ADC_Configure(void)
 {
 	/* enable VREF */
 	SPC_EnableActiveModeAnalogModules(SPC0, kSPC_controlVref);
-
 
 	VREF_GetDefaultConfig(&vrefConfig);
 	vrefConfig.bufferMode = kVREF_ModeBandgapOnly;
@@ -1109,6 +1272,7 @@ void ADC_Configure(void)
 	triggerConfigStruct[ADC0_B1].targetCommandId       = 2U;
 	triggerConfigStruct[ADC0_B1].enableHardwareTrigger = false;
 	triggerConfigStruct[ADC0_B1].channelBFIFOSelect = 0;
+    LPADC_SetConvTriggerConfig(ADC0, 0U, &triggerConfigStruct[ADC0_B1]); /* Configurate the trigger0. */
 
     /* Set conversion CMD configuration. */
 	LPADC_GetDefaultConvCommandConfig(&commandConfigStruct[ADC1_A6]);
@@ -1132,6 +1296,19 @@ void ADC_Configure(void)
 	triggerConfigStruct[ADC1_B5].targetCommandId       = 4U;
 	triggerConfigStruct[ADC1_B5].enableHardwareTrigger = false;
 	triggerConfigStruct[ADC1_B5].channelBFIFOSelect = 0;
+
+    /* Set conversion CMD configuration. */
+	LPADC_GetDefaultConvCommandConfig(&commandConfigStruct[ADC1_B6]);
+	commandConfigStruct[ADC1_B6].enableChannelB = true;
+	commandConfigStruct[ADC1_B6].channelBNumber = 6;
+	commandConfigStruct[ADC1_B6].sampleChannelMode = kLPADC_SampleChannelSingleEndSideB;
+	LPADC_SetConvCommandConfig(ADC1, 13, &commandConfigStruct[ADC1_B6]);
+	/* Set trigger configuration. */
+	LPADC_GetDefaultConvTriggerConfig(&triggerConfigStruct[ADC1_B6]);
+	triggerConfigStruct[ADC1_B6].targetCommandId       = 13U;
+	triggerConfigStruct[ADC1_B6].enableHardwareTrigger = false;
+	triggerConfigStruct[ADC1_B6].channelBFIFOSelect = 0;
+
 
     	/* Set conversion CMD configuration. */
 	LPADC_GetDefaultConvCommandConfig(&commandConfigStruct[ADC1_B8]);
@@ -1207,18 +1384,6 @@ void DAC_Configure(void)
 void CAN_Configure(void)
 {
 /* Get FlexCAN module default Configuration. */
-    /*
-     * flexcanConfig.clkSrc                 = kFLEXCAN_ClkSrc0;
-     * flexcanConfig.bitRate               = 1000000U;
-     * flexcanConfig.bitRateFD             = 2000000U;
-     * flexcanConfig.maxMbNum               = 16;
-     * flexcanConfig.enableLoopBack         = false;
-     * flexcanConfig.enableSelfWakeup       = false;
-     * flexcanConfig.enableIndividMask      = false;
-     * flexcanConfig.disableSelfReception   = false;
-     * flexcanConfig.enableListenOnlyMode   = false;
-     * flexcanConfig.enableDoze             = false;
-     */
     FLEXCAN_GetDefaultConfig(&flexcanConfig);
 
     /* 修改配置：禁用自我接收 */
@@ -1276,25 +1441,6 @@ void CAN_Configure(void)
 
 void UART_Configure(void)
 {
-	// LPUART_GetDefaultConfig(&config);
-	// config.baudRate_Bps = BOARD_DEBUG_UART_BAUDRATE;
-	// config.enableTx     = true;
-	// config.enableRx     = true;
-
-	// LPUART_Init(LPUART4, &config, LPUART_CLK_FREQ);
-	// LPUART_TransferCreateHandle(LPUART4, &g_lpuartHandle, LPUART_UserCallback, NULL);
-
-	// LPUART_EnableInterrupts(LPUART4, kLPUART_RxDataRegFullInterruptEnable);
-    // NVIC_SetPriority(LP_FLEXCOMM4_IRQn, configLIBRARY_MAX_SYSCALL_INTERRUPT_PRIORITY + 2); // 设置中断优先级（如优先级 3，需根据实际调整）
-    // NVIC_EnableIRQ(LP_FLEXCOMM4_IRQn);       // 启用 NVIC 中断
-
-	// /* Send g_tipString out. */
-	// xfer.data     = g_tipString;
-	// xfer.dataSize = sizeof(g_tipString) - 1;
-	// txOnGoing     = true;
-	// LPUART_TransferSendNonBlocking(LPUART4, &g_lpuartHandle, &xfer);
-
-
     LPUART_GetDefaultConfig(&config);
     config.baudRate_Bps = BOARD_DEBUG_UART_BAUDRATE;
     config.enableTx     = true;
@@ -1303,7 +1449,7 @@ void UART_Configure(void)
     LPUART_Init(LPUART4, &config, DEMO_LPUART_CLK_FREQ);
 
     /* Send g_tipString out. */
-    LPUART_WriteBlocking(LPUART4, g_tipString, sizeof(g_tipString) / sizeof(g_tipString[0]));
+    // LPUART_WriteBlocking(LPUART4, g_tipString, sizeof(g_tipString) / sizeof(g_tipString[0]));
 
     /* Enable RX interrupt. */
     LPUART_EnableInterrupts(LPUART4, kLPUART_RxDataRegFullInterruptEnable);
@@ -1339,11 +1485,77 @@ void WWDT_Configure(void)
 	WWDT_Init(WWDT0, &config);
 }
 
-void PWM_Configure(void)
+static void PWM_Configure(void)
 {
+	/* Structure of initialize PWM */
+	pwm_config_t pwmConfig;
+	pwm_fault_param_t faultConfig;
+	PWM_GetDefaultConfig(&pwmConfig);
+
+	/* Use full cycle reload */
+	pwmConfig.reloadLogic = kPWM_ReloadPwmFullCycle;
+	/* PWM A & PWM B form a complementary PWM pair */
+	pwmConfig.pairOperation   = kPWM_Independent;
+	pwmConfig.enableDebugMode = true;
+
+	/* Initialize submodule 0 */
+	if (PWM_Init(BOARD_PWM_BASEADDR, kPWM_Module_0, &pwmConfig) == kStatus_Fail)
+	{
+		PRINTF("PWM initialization failed\n");
+	}
+
+	/* Initialize submodule 1, make it use same counter clock as submodule 0. */
+//	pwmConfig.clockSource           = kPWM_BusClock;
+//	pwmConfig.prescale              = kPWM_Prescale_Divide_1;
+//	pwmConfig.initializationControl = kPWM_Initialize_MasterSync;
+	if (PWM_Init(BOARD_PWM_BASEADDR, kPWM_Module_3, &pwmConfig) == kStatus_Fail)
+	{
+		PRINTF("PWM initialization failed\n");
+	}
+
+	/*
+	 *   config->faultClearingMode = kPWM_Automatic;
+	 *   config->faultLevel = false;
+	 *   config->enableCombinationalPath = true;
+	 *   config->recoverMode = kPWM_NoRecovery;
+	 */
+	PWM_FaultDefaultConfig(&faultConfig);
+
+#ifdef DEMO_PWM_FAULT_LEVEL
+	faultConfig.faultLevel = DEMO_PWM_FAULT_LEVEL;
+#endif
+
+	/* Sets up the PWM fault protection */
+	PWM_SetupFaults(BOARD_PWM_BASEADDR, kPWM_Fault_0, &faultConfig);
+	PWM_SetupFaults(BOARD_PWM_BASEADDR, kPWM_Fault_1, &faultConfig);
+	PWM_SetupFaults(BOARD_PWM_BASEADDR, kPWM_Fault_2, &faultConfig);
+	PWM_SetupFaults(BOARD_PWM_BASEADDR, kPWM_Fault_3, &faultConfig);
+
+	/* Set PWM fault disable mapping for submodule 0/1/2 */
+	PWM_SetupFaultDisableMap(BOARD_PWM_BASEADDR, kPWM_Module_0, kPWM_PwmA, kPWM_faultchannel_0,
+							 kPWM_FaultDisable_0 | kPWM_FaultDisable_1 | kPWM_FaultDisable_2 | kPWM_FaultDisable_3);
+	PWM_SetupFaultDisableMap(BOARD_PWM_BASEADDR, kPWM_Module_1, kPWM_PwmA, kPWM_faultchannel_0,
+							 kPWM_FaultDisable_0 | kPWM_FaultDisable_1 | kPWM_FaultDisable_2 | kPWM_FaultDisable_3);
+	PWM_SetupFaultDisableMap(BOARD_PWM_BASEADDR, kPWM_Module_2, kPWM_PwmA, kPWM_faultchannel_0,
+							 kPWM_FaultDisable_0 | kPWM_FaultDisable_1 | kPWM_FaultDisable_2 | kPWM_FaultDisable_3);
+
+	/* Call the init function with demo configuration */
+	PWM_DRV_Init3PhPwm();
+
+	/* Set the load okay bit for all submodules to load registers from their buffer */
+	PWM_SetPwmLdok(BOARD_PWM_BASEADDR, kPWM_Control_Module_0 | kPWM_Control_Module_3, true);
+
+	/* Start the PWM generation from Submodules 0, 1 and 2 */
+	PWM_StartTimer(BOARD_PWM_BASEADDR, kPWM_Control_Module_0 | kPWM_Control_Module_3);
 
 
+	/* Update duty cycles for all PWM signals */
+	PWM_UpdatePwmDutycycle(BOARD_PWM_BASEADDR, kPWM_Module_3, kPWM_PwmA, kPWM_SignedCenterAligned, 100);
+	PWM_UpdatePwmDutycycle(BOARD_PWM_BASEADDR, kPWM_Module_3, kPWM_PwmB, kPWM_SignedCenterAligned, 100);
+	PWM_UpdatePwmDutycycle(BOARD_PWM_BASEADDR, kPWM_Module_0, kPWM_PwmB, kPWM_SignedCenterAligned, 100);
 
+	/* Set the load okay bit for all submodules to load registers from their buffer */
+	PWM_SetPwmLdok(BOARD_PWM_BASEADDR, kPWM_Control_Module_0 | kPWM_Control_Module_3, true);
 
 }
 

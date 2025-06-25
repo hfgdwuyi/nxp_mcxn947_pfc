@@ -70,7 +70,7 @@ void BOARD_InitPins(void)
 	CLOCK_EnableClock(kCLOCK_Port3);
 
 	BOARD_InitGPIO();
-	// BOARD_InitPWM();
+	BOARD_InitPWM();
 	BOARD_InitUART();
 	// BOARD_InitSPI();
 	BOARD_InitCAN();
@@ -140,9 +140,9 @@ void BOARD_InitGPIO(void)
 	GPIO_PinInit(SYS_CFG1_GPIO, SYS_CFG1_GPIO_PIN, &sw_config);
 	GPIO_PinInit(SYS_CFG2_GPIO, SYS_CFG2_GPIO_PIN, &sw_config);
 
-	GPIO_PinInit(PWM1_FB_GPIO, PWM1_FB_GPIO_PIN, &sw_config);
-	GPIO_PinInit(PWM2_FB_GPIO, PWM2_FB_GPIO_PIN, &sw_config);
-	GPIO_PinInit(PWM3_FB_GPIO, PWM3_FB_GPIO_PIN, &sw_config);
+//	GPIO_PinInit(PWM1_FB_GPIO, PWM1_FB_GPIO_PIN, &sw_config);
+//	GPIO_PinInit(PWM2_FB_GPIO, PWM2_FB_GPIO_PIN, &sw_config);
+//	GPIO_PinInit(PWM3_FB_GPIO, PWM3_FB_GPIO_PIN, &sw_config);
 
 
 
@@ -183,15 +183,11 @@ void BOARD_InitGPIO(void)
 	GPIO_PinInit(BOARD_LCD_RS_GPIO, BOARD_LCD_RS_GPIO_PIN, &gpio_config);
 	GPIO_PinInit(BOARD_LCD_SDA_GPIO, BOARD_LCD_SDA_GPIO_PIN, &gpio_config);
 	GPIO_PinInit(BOARD_LCD_SCL_GPIO, BOARD_LCD_SCL_GPIO_PIN, &gpio_config);
-	GPIO_PinInit(BOARD_LCD_ROM_IN_GPIO, BOARD_LCD_ROM_IN_GPIO_PIN, &gpio_config);
-	GPIO_PinInit(BOARD_LCD_ROM_OUT_GPIO, BOARD_LCD_ROM_OUT_GPIO_PIN, &gpio_config);
-	GPIO_PinInit(BOARD_LCD_ROM_SCK_GPIO, BOARD_LCD_ROM_SCK_GPIO_PIN, &gpio_config);
-	GPIO_PinInit(BOARD_LCD_ROM_CS_GPIO, BOARD_LCD_ROM_CS_GPIO_PIN, &gpio_config);
+//	GPIO_PinInit(BOARD_LCD_ROM_IN_GPIO, BOARD_LCD_ROM_IN_GPIO_PIN, &gpio_config);
+//	GPIO_PinInit(BOARD_LCD_ROM_OUT_GPIO, BOARD_LCD_ROM_OUT_GPIO_PIN, &gpio_config);
+//	GPIO_PinInit(BOARD_LCD_ROM_SCK_GPIO, BOARD_LCD_ROM_SCK_GPIO_PIN, &gpio_config);
+//	GPIO_PinInit(BOARD_LCD_ROM_CS_GPIO, BOARD_LCD_ROM_CS_GPIO_PIN, &gpio_config);
 
-	/* Init output PWM GPIO. */
-	GPIO_PinInit(PWM1_GPIO, PWM1_GPIO_PIN, &gpio_config);
-	GPIO_PinInit(PWM2_GPIO, PWM2_GPIO_PIN, &gpio_config);
-	GPIO_PinInit(PWM3_GPIO, PWM3_GPIO_PIN, &gpio_config);
 }
 
 /* FUNCTION ************************************************************************************************************
@@ -390,6 +386,9 @@ void BOARD_InitADC(void){
 	/* PORT5_3 (pin M11) is configured as ADC1_B11 */
 	PORT_SetPinConfig(PORT5, 3U, &port_ADC_config);
 
+	/* PORT4_21 (pin T11) is configured as ADC1_B6 */
+	PORT_SetPinConfig(PORT4, 21U, &port_ADC_config);
+
 }
 
 /* FUNCTION ************************************************************************************************************
@@ -436,31 +435,43 @@ void BOARD_InitPWM(void){
     CLOCK_EnableClock(kCLOCK_Port2);
 
     const port_pin_config_t port_PWM_config = {/* Internal pull-up/down resistor is disabled */
-                                                      kPORT_PullDisable,
-                                                      /* Low internal pull resistor value is selected. */
-                                                      kPORT_LowPullResistor,
-                                                      /* Fast slew rate is configured */
-                                                      kPORT_FastSlewRate,
-                                                      /* Passive input filter is disabled */
-                                                      kPORT_PassiveFilterDisable,
-                                                      /* Open drain output is disabled */
-                                                      kPORT_OpenDrainDisable,
-                                                      /* Low drive strength is configured */
-                                                      kPORT_LowDriveStrength,
-                                                      /* Pin is configured as CT0_MAT0 */
-                                                      kPORT_MuxAlt4,
-                                                      /* Digital input enabled */
-                                                      kPORT_InputBufferEnable,
-                                                      /* Digital input is not inverted */
-                                                      kPORT_InputNormal,
-                                                      /* Pin Control Register fields [15:0] are not locked */
-                                                      kPORT_UnlockRegister};
-    /* PORT2_0 (pin H2) is configured as CT0_MAT0 */
+												kPORT_PullDisable,
+												/* Low internal pull resistor value is selected. */
+												kPORT_LowPullResistor,
+												/* Fast slew rate is configured */
+												kPORT_FastSlewRate,
+												/* Passive input filter is disabled */
+												kPORT_PassiveFilterDisable,
+												/* Open drain output is disabled */
+												kPORT_OpenDrainDisable,
+												/* Low drive strength is configured */
+												kPORT_LowDriveStrength,
+												/* Pin is configured as PWM1_B0 */
+												kPORT_MuxAlt5,
+												/* Digital input enabled */
+												kPORT_InputBufferEnable,
+												/* Digital input is not inverted */
+												kPORT_InputNormal,
+												/* Pin Control Register fields [15:0] are not locked */
+												kPORT_UnlockRegister};
+    /* PORT2_0 (pin H2) is configured as PWM1_A3 */
     PORT_SetPinConfig(PORT2, 0U, &port_PWM_config);
-    /* PORT2_1 (pin H1) is configured as CT0_MAT0 */
+    /* PORT2_1 (pin H1) is configured as PWM1_B3 */
     PORT_SetPinConfig(PORT2, 1U, &port_PWM_config);
-    /* PORT2_7 (pin L2) is configured as FLEXIO0_D15 */
+    /* PORT2_7 (pin L2) is configured as PWM1_B0 */
     PORT_SetPinConfig(PORT2, 7U, &port_PWM_config);
+
+
+
+
+    gpio_pin_config_t gpio_config = {
+        .pinDirection = kGPIO_DigitalInput,
+        .outputLogic = 0U
+    };
+    /* PORT2_8 (pin M2) is configured as PWM1_X0 */
+    GPIO_PinInit(GPIO2, 8U, &gpio_config);
+
+
 }
 /***********************************************************************************************************************
  * EOF

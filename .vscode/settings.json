@@ -1,18 +1,12 @@
 {
     "files.associations": {
-        "pin_mux.h": "c",
-        "board.h": "c",
-        "command.h": "c",
-        "main.h": "c",
-        "fsl_device_registers.h": "c",
-        "string.h": "c",
-        "lcd.h": "c",
-        "fsl_dac.h": "c",
-        "freertos.h": "c",
-        "fsl_gpio.h": "c",
+        "fsl_debug_console.h": "c",
         "sensor.h": "c",
-        "stdlib.h": "c",
-        "C_Cpp.clang_format_style": "file",  // 使用项目中的 .clang-format 文件
-        "editor.formatOnSave": true        // 保存时自动格式化
+        "fsl_component_serial_manager.h": "c",
+        "main.h": "c",
+        "lcd.h": "c",
+        "key.h": "c",
+        "fan.h": "c",
+        "fsl_device_registers.h": "c"
     }
 }

@@ -12,6 +12,13 @@
 #include <stdint.h>
 #include <stdbool.h>
 
+/* Kernel includes. */
+#include "FreeRTOS.h"
+#include "task.h"
+#include "queue.h"
+#include "timers.h"
+#include "semphr.h"
+
 #include "fsl_lpuart.h"
 #include "fsl_lpadc.h"
 #include "fsl_flexcan.h"
@@ -21,6 +28,29 @@
 #define RX_MESSAGE_BUFFER_NUM      (0)
 #define TX_MESSAGE_BUFFER_NUM      (1)
 #define DLC 8
+
+#define ENABLE_SOFT_START()     GPIO_PortSet(SS_RLY_EN_GPIO, 1u << SS_RLY_EN_GPIO_PIN)
+#define ENABLE_PFC()            GPIO_PortSet(PFC1_EN_GPIO, 1u << PFC1_EN_GPIO_PIN);\
+                                GPIO_PortSet(PFC2_EN_GPIO, 1u << PFC2_EN_GPIO_PIN)
+#define ENABLE_DC()             GPIO_PortSet(DCDC1_EN_GPIO, 1u << DCDC1_EN_GPIO_PIN);\
+                                GPIO_PortSet(DCDC2_EN_GPIO, 1u << DCDC2_EN_GPIO_PIN)
+
+
+typedef enum {
+    MSG_INCREASE_PAGE,      
+    MSG_DECREASE_PAGE,      
+	MSG_INCREASE_VALUE,
+	MSG_DECREASE_VALUE,
+	MSG_CONFIRM
+} MessageType_e;
+
+// 定义消息结构体
+typedef struct {
+    MessageType_e type;  
+	bool confirm;
+} key_message_t;
+
+extern QueueHandle_t xKeyMessageQueue;
 
 
 extern uint16_t adcValue[9];
@@ -42,6 +72,7 @@ typedef enum _adc_value_name
 	PFC_VOUT_ADC,
 	PFC1_TEMP_ADC,
 	PFC2_TEMP_ADC,
+	ANALOG_KEYBOARD_ADC,
 } adc_value_name_t;
 
 typedef enum _adc_channel_name
@@ -53,6 +84,7 @@ typedef enum _adc_channel_name
 	ADC0_A6B6,
 	ADC1_A0B0,
 	ADC1_B5,
+	ADC1_B6,
 	ADC1_A6,
 	ADC1_B8,
 	ADC1_B9,

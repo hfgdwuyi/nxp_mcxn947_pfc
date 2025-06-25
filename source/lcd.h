@@ -34,6 +34,9 @@ typedef struct
 }
 #endif
 
+extern uint32_t currentPage;
+extern uint32_t currentValue;
+
 extern void Display(void);
 extern void lv_port_disp_init(void);
 #endif /*LVGL_SUPPORT_H */
