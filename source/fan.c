@@ -1,21 +1,42 @@
 /*
- * Copyright 2023 NXP
- * All rights reserved.
- *
- * SPDX-License-Identifier: BSD-3-Clause
+ * fan.c - Fan speed control (stub)
  */
 
-#include "main.h"
-#include "fsl_device_registers.h"
-#include "fsl_debug_console.h"
 #include "fan.h"
+#include "fsl_debug_console.h"
 
 #include "FreeRTOS.h"
-#include "queue.h"
+#include "task.h"
 
+/*================================================================
+ * Fan Task - periodic fan speed control
+ *================================================================*/
+void prvFanTask(void *pvParameters)
+{
+    (void)pvParameters;
+    TickType_t tick_start, tick_end, delay_target;
 
-void fanSpeedControl(void);
+    for (;;) {
+        tick_start = xTaskGetTickCount();
 
-void fanSpeedControl(void){
+        fanSpeedControl();
 
+        tick_end = xTaskGetTickCount();
+
+        if (tick_end - tick_start >= pdMS_TO_TICKS(LV_FAN_DEF_REFR_PERIOD)) {
+            delay_target = 1;
+        } else {
+            delay_target = pdMS_TO_TICKS(LV_FAN_DEF_REFR_PERIOD) - (tick_end - tick_start);
+        }
+
+        vTaskDelay(delay_target);
+    }
+}
+
+/*================================================================
+ * Fan speed control (stub - to be implemented)
+ *================================================================*/
+void fanSpeedControl(void)
+{
+    /* TODO: Implement fan speed control based on temperature */
 }

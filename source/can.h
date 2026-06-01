@@ -1,24 +1,33 @@
 /*
- * Copyright 2023 NXP
- * All rights reserved.
- *
- * SPDX-License-Identifier: BSD-3-Clause
+ * can.h - CAN bus interface
  */
 
-// command.h
 #ifndef CAN_H
 #define CAN_H
 
-/*******************************************************************************
- * Definitions
- ******************************************************************************/
+#include <stdint.h>
+#include <stdbool.h>
+
+#include "FreeRTOS.h"
+#include "queue.h"
+#include "semphr.h"
 
 #define LV_CAN_DEF_REFR_PERIOD 1000
+#define DLC 8
 
+typedef struct {
+    uint32_t id;
+    uint8_t data[8];
+    uint8_t length;
+    uint32_t timestamp;
+} can_message_t;
 
-extern void sendCAN(void);
+extern QueueHandle_t xCanRxQueue;
+extern SemaphoreHandle_t xCanTxMutex;
 
-#endif
+void CAN_Configure(void);
+void sendCAN(void);
+void vTaskCANRx(void *pvParameters);
+void vTaskCANTx(void *pvParameters);
 
-
-
+#endif /* CAN_H */

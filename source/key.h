@@ -1,27 +1,25 @@
 /*
- * Copyright 2023 NXP
- * All rights reserved.
- *
- * SPDX-License-Identifier: BSD-3-Clause
+ * key.h - Analog keyboard (ADC-based)
  */
 
-// command.h
 #ifndef KEY_H
 #define KEY_H
 
 #include <stdint.h>
 #include <stdbool.h>
-/*******************************************************************************
- * Definitions
- ******************************************************************************/
+#include "FreeRTOS.h"
+#include "queue.h"
+#include "main.h"
+
 #define LV_KEY_DEF_REFR_PERIOD 100
 
 typedef struct {
     bool dataUpdated;
 } key_status_t;
 
-extern void keyScan(void);
-#endif
+extern QueueHandle_t xKeyMessageQueue;
 
+void keyScan(void);
+void prvKeyTask(void *pvParameters);
 
-
+#endif /* KEY_H */

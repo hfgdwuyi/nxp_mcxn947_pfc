@@ -1,22 +1,30 @@
 /*
- * Copyright 2023 NXP
- * All rights reserved.
- *
- * SPDX-License-Identifier: BSD-3-Clause
+ * command.h - UART command interface
  */
 
-// command.h
 #ifndef COMMAND_H
 #define COMMAND_H
 
 #include <stdint.h>
 #include <stdbool.h>
 
-#include "fsl_lpuart.h"
+#include "FreeRTOS.h"
+#include "queue.h"
+#include "semphr.h"
 
-extern void processReceivedCommand(const char *data);
+#define RX_BUFFER_SIZE 256
 
-#endif
+typedef struct {
+    uint8_t data[256];
+    uint16_t length;
+    uint32_t timestamp;
+} uart_message_t;
 
+extern QueueHandle_t xUartRxQueue;
+extern SemaphoreHandle_t xUartTxMutex;
 
+void UART_Configure(void);
+void processReceivedCommand(const char *data);
+void prvUartRxTask(void *pvParameters);
 
+#endif /* COMMAND_H */
