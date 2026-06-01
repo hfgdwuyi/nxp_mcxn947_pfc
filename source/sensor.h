@@ -55,19 +55,12 @@ extern lpadc_conv_trigger_config_t triggerConfigStruct[13];
 extern lpadc_conv_command_config_t commandConfigStruct[13];
 extern lpadc_conv_result_t resultStruct[13];
 
+/* RMS output - only .real is valid for external consumers */
 typedef struct {
-    uint8_t isPositivalHalfFlag;
-    uint16_t adcValue;
-    float sum;
-    uint8_t sumCnts;
-    float meanSqure;
-    float rootMeanSqure;
-    float measure;
     float real;
 } rms_message_t;
 
 typedef struct {
-    uint16_t adcValue;
     float real;
 } constant_message_t;
 

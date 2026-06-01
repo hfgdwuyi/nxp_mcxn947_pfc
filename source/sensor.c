@@ -29,10 +29,32 @@ lpadc_conv_result_t resultStruct[13];
 /* Shared ADC values */
 uint16_t adcValue[16];
 
-/* RMS calculation state */
-static long iq12Temp = 0;
-static long iq12TempAccum = 0;
-static long iq12TempAvg = 0;
+/*
+ * Sliding-window RMS engine.
+ *
+ * 1 kHz sampling → 200 samples = 200 ms = 10 cycles @ 50 Hz / 12 cycles @ 60 Hz.
+ * Both are integer-cycle windows, so no spectral leakage.
+ * RMS = sqrt(E[x²] - E[x]²)  — true AC RMS with DC offset removed.
+ */
+#define RMS_WINDOW_SIZE  200
+#define DC_EMA_ALPHA      0.05f   /* exponential moving average for DC channels */
+
+typedef struct {
+    uint16_t buffer[RMS_WINDOW_SIZE];
+    uint16_t index;
+    uint16_t count;
+    float sum;
+    float sumSq;
+    float value;
+} rms_state_t;
+
+/* ADC-to-real scaling (hardware-specific voltage divider) */
+static inline float adcToVoltage(float adcRms)
+{
+    return adcRms / 4096.0f * 3.3f * 10000.0f / 19.0f;
+}
+
+static rms_state_t vrmsState, irmsState;
 
 rms_message_t Vrms, Irms;
 constant_message_t Vout, Iout;
@@ -42,8 +64,9 @@ sensor_status_t sensor_status;
 static vref_config_t vrefConfig;
 static lpadc_config_t mLpadcConfigStruct;
 
-static void caclulateVrms(void);
-static void caclulateIrms(void);
+static void calculateVrms(void);
+static void calculateIrms(void);
+static void rmsSlidingUpdate(rms_state_t *s, uint16_t newVal);
 
 /*================================================================
  * ADC Configuration
@@ -328,8 +351,11 @@ void readSensor(void)
     while (!LPADC_GetConvResult(ADC1, &resultStruct[ADC1_B6], 0U)) {}
     adcValue[ANALOG_KEYBOARD_ADC] = (resultStruct[ADC1_B6].convValue >> g_LpadcResultShift);
 
-    caclulateVrms();
-    caclulateIrms();
+    calculateVrms();
+    calculateIrms();
+    /* DC output: simple exponential moving average */
+    Vout.real += DC_EMA_ALPHA * ((float)adcValue[PFC_VOUT_ADC] / 4096.0f * 3.3f * 10000.0f / 19.0f - Vout.real);
+    Iout.real += DC_EMA_ALPHA * ((float)adcValue[PFC_I_OUT_ADC] / 4096.0f * 3.3f * 10000.0f / 19.0f - Iout.real);
 
     sensor_status.powerDataUpdated = true;
 }
@@ -337,62 +363,46 @@ void readSensor(void)
 /*================================================================
  * RMS Calculations
  *================================================================*/
-static void caclulateVrms(void)
+/*
+ * Sliding-window true AC RMS update (O(1) per sample).
+ *
+ * Removes DC offset: RMS = sqrt(E[x²] - E[x]²).
+ * The window spans RMS_WINDOW_SIZE samples — an integer number of
+ * 50 Hz and 60 Hz cycles, so no ripple at twice the line frequency.
+ */
+static void rmsSlidingUpdate(rms_state_t *s, uint16_t newVal)
 {
-    Vrms.adcValue = adcValue[PFC_VIN_ADC];
-    if (Vrms.adcValue >= 5) {
-        Vrms.isPositivalHalfFlag = true;
+    float fVal = (float)newVal;
+
+    if (s->count == RMS_WINDOW_SIZE) {
+        uint16_t old = s->buffer[s->index];
+        s->sum -= (float)old;
+        s->sumSq -= (float)old * (float)old;
     } else {
-        Vrms.isPositivalHalfFlag = false;
+        s->count++;
     }
 
-    if (Vrms.isPositivalHalfFlag) {
-        Vrms.sum += Vrms.adcValue * Vrms.adcValue;
-        Vrms.sumCnts++;
-    } else {
-        if (Vrms.sumCnts > 0) {
-            Vrms.meanSqure = Vrms.sum / Vrms.sumCnts;
-        }
-        Vrms.sumCnts = 0;
-        Vrms.sum = 0;
-    }
+    s->buffer[s->index] = newVal;
+    s->sum += fVal;
+    s->sumSq += fVal * fVal;
+    s->index = (s->index + 1) % RMS_WINDOW_SIZE;
 
-    Vrms.rootMeanSqure = sqrtf(Vrms.meanSqure);
-    iq12Temp = (long)Vrms.rootMeanSqure;
-    iq12TempAccum -= (iq12TempAvg);
-    iq12TempAccum += iq12Temp;
-    iq12TempAvg = iq12TempAccum;
-    Vrms.rootMeanSqure = iq12TempAvg;
+    float mean = s->sum / s->count;
+    float meanSq = s->sumSq / s->count;
+    float variance = meanSq - mean * mean;
+    if (variance < 0.0f) variance = 0.0f;
 
-    Vrms.real = (float)Vrms.rootMeanSqure / 4096 * 3.3 * 10000 / 19;
+    s->value = sqrtf(variance);
 }
 
-static void caclulateIrms(void)
+static void calculateVrms(void)
 {
-    Irms.adcValue = adcValue[PFC_I_IN_ADC];
-    if (Irms.adcValue >= 5) {
-        Irms.isPositivalHalfFlag = true;
-    } else {
-        Irms.isPositivalHalfFlag = false;
-    }
+    rmsSlidingUpdate(&vrmsState, adcValue[PFC_VIN_ADC]);
+    Vrms.real = adcToVoltage(vrmsState.value);
+}
 
-    if (Irms.isPositivalHalfFlag) {
-        Irms.sum += Irms.adcValue * Irms.adcValue;
-        Irms.sumCnts++;
-    } else {
-        if (Irms.sumCnts > 0) {
-            Irms.meanSqure = Irms.sum / Irms.sumCnts;
-        }
-        Irms.sumCnts = 0;
-        Irms.sum = 0;
-    }
-
-    Irms.rootMeanSqure = sqrtf(Irms.meanSqure);
-    iq12Temp = (long)Irms.rootMeanSqure;
-    iq12TempAccum -= (iq12TempAvg);
-    iq12TempAccum += iq12Temp;
-    iq12TempAvg = iq12TempAccum;
-    Irms.rootMeanSqure = iq12TempAvg;
-
-    Irms.real = (float)Irms.rootMeanSqure / 4096 * 3.3 * 10000 / 19;
+static void calculateIrms(void)
+{
+    rmsSlidingUpdate(&irmsState, adcValue[PFC_I_IN_ADC]);
+    Irms.real = adcToVoltage(irmsState.value);
 }

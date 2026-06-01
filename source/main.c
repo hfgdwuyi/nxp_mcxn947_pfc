@@ -184,8 +184,6 @@ static void prvLedTimerCallback(TimerHandle_t xTimer)
     GPIO_PortToggle(DBG_LED_GPIO, 1u << DBG_LED2_PIN);
     GPIO_PortToggle(CAN_LED_GPIO, 1u << CAN_LED_RUN_PIN);
     GPIO_PortToggle(CAN_LED_GPIO, 1u << CAN_LED_ERROR_PIN);
-
-    WWDT_Refresh(WWDT0);
 }
 
 /*========================================================================
@@ -250,5 +248,5 @@ void vApplicationTickHook(void)
 
 void vApplicationIdleHook(void)
 {
-    /* Idle - heap monitoring could go here */
+    WWDT_Refresh(WWDT0);
 }

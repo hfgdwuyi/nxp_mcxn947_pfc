@@ -6,16 +6,11 @@
 #define KEY_H
 
 #include <stdint.h>
-#include <stdbool.h>
 #include "FreeRTOS.h"
 #include "queue.h"
 #include "main.h"
 
 #define LV_KEY_DEF_REFR_PERIOD 100
-
-typedef struct {
-    bool dataUpdated;
-} key_status_t;
 
 extern QueueHandle_t xKeyMessageQueue;
 

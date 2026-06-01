@@ -12,7 +12,6 @@
 #include "sensor.h"
 #include "main.h"
 #include "key.h"
-#include "sensor.h"
 
 #include "FreeRTOS.h"
 #include "task.h"
@@ -178,6 +177,8 @@ typedef struct {
 
 static lcd_format_t Vin;
 static lcd_format_t Iin;
+static lcd_format_t VoutDisp;
+static lcd_format_t IoutDisp;
 
 typedef enum {
     PAGE_MAIN = 0,
@@ -210,9 +211,7 @@ static void showAdjustVoltage2(void);
  ******************************************************************************/
 void delay(uint16_t n_ms)
 {
-    uint16_t j,k;
-    for(j=0;j<n_ms;j++)
-        for(k=0;k<110;k++);
+    vTaskDelay(pdMS_TO_TICKS(n_ms));
 }
 
 void transfer_command_lcd(uint8_t data1)
@@ -493,14 +492,17 @@ void Display(void)
     while (xQueueReceive(xKeyMessageQueue, &msg, 0) == pdTRUE) {
         switch (msg.type) {
         case MSG_INCREASE_PAGE:
-            if (currentPage++ >= PAGE_COUNT)
+            currentPage++;
+            if (currentPage >= PAGE_COUNT)
                 currentPage = 0;
             currentValue = 0;
             break;
 
         case MSG_DECREASE_PAGE:
-            if (currentPage-- >= PAGE_COUNT)
+            if (currentPage == 0)
                 currentPage = PAGE_COUNT - 1;
+            else
+                currentPage--;
             currentValue = 0;
             break;
 
@@ -540,19 +542,19 @@ static void showVac(void){
 
 static void showVbus(void){
     displayLetter((sizeof(Font_Vbus) / sizeof(Font_Vbus[0])) / 16,3,1,Font_Vbus);
-    displayDigital(1,3,112,Vin);
+    displayDigital(1,3,112,VoutDisp);
     displayLetter((sizeof(Font_V) / sizeof(Font_V[0])) / 16,3,120,Font_V);
 }
 
 static void showVout(void){
     displayLetter((sizeof(Font_Vdc) / sizeof(Font_Vdc[0])) / 16,5,1,Font_Vdc);
-    displayDigital(1,5,112,Vin);
+    displayDigital(1,5,112,VoutDisp);
     displayLetter((sizeof(Font_V) / sizeof(Font_V[0])) / 16,5,120,Font_V);
 }
 
 static void showIout(void){
     displayLetter((sizeof(Font_Idc) / sizeof(Font_Idc[0])) / 16,7,1,Font_Idc);
-    displayDigital(1,7,112,Vin);
+    displayDigital(1,7,112,IoutDisp);
     displayLetter((sizeof(Font_A) / sizeof(Font_A[0])) / 16,7,120,Font_A);
 }
 
@@ -582,7 +584,6 @@ static void showAdjustVoltage2(void){
 
 static void refreshLCD(void){
     if(sensor_status.powerDataUpdated) {
-        Vrms.real = 223.5f;
         Vin.integer = (int)Vrms.real;
         Vin.hundreds = Vin.integer / 100;
         Vin.tens = (Vin.integer % 100) / 10;
@@ -595,7 +596,18 @@ static void refreshLCD(void){
         Iin.units = (Iin.integer % 100) % 10;
         Iin.decimal = (int)((Irms.real - Iin.integer) * 10);
 
-        currentPage = 3;
+        VoutDisp.integer = (int)Vout.real;
+        VoutDisp.hundreds = VoutDisp.integer / 100;
+        VoutDisp.tens = (VoutDisp.integer % 100) / 10;
+        VoutDisp.units = (VoutDisp.integer % 100) % 10;
+        VoutDisp.decimal = (int)((Vout.real - VoutDisp.integer) * 10);
+
+        IoutDisp.integer = (int)Iout.real;
+        IoutDisp.hundreds = IoutDisp.integer / 100;
+        IoutDisp.tens = (IoutDisp.integer % 100) / 10;
+        IoutDisp.units = (IoutDisp.integer % 100) % 10;
+        IoutDisp.decimal = (int)((Iout.real - IoutDisp.integer) * 10);
+
         switch (currentPage) {
         case PAGE_MAIN:
             clear_screen();

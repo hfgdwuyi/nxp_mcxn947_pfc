@@ -22,8 +22,6 @@ typedef struct {
     void (*action)(void);
 } ADCRange_t;
 
-static key_status_t key_status;
-
 static void actionForSW1(void);
 static void actionForSW2(void);
 static void actionForSW3(void);
@@ -38,6 +36,11 @@ static const ADCRange_t adcRanges[6] = {
     {2800, 3000,  actionForSW5},
     {3000, 4095,  NULL}
 };
+
+/* Debounce state: track which key is pressed to detect release */
+#define KEY_DEBOUNCE_MS  3    /* consecutive scans needed before action */
+static int8_t  prevKeyIndex  = -1;   /* which key was pressed last scan, -1 = none */
+static uint8_t debounceCount = 0;
 
 /*================================================================
  * Key Task - periodic key scan
@@ -70,17 +73,29 @@ void prvKeyTask(void *pvParameters)
 void keyScan(void)
 {
     uint16_t value = adcValue[ANALOG_KEYBOARD_ADC];
+    int8_t currentKey = -1;
+
+    /* Identify the pressed key (0-4) or -1 if none */
     for (int i = 0; i < 5; i++) {
         if (value >= adcRanges[i].minValue && value <= adcRanges[i].maxValue) {
-            if (adcRanges[i].action != NULL && key_status.dataUpdated) {
-                adcRanges[i].action();
-                key_status.dataUpdated = false;
-            } else {
-                key_status.dataUpdated = true;
-            }
+            currentKey = (int8_t)i;
             break;
         }
     }
+
+    /* Debounce: key must be stable for KEY_DEBOUNCE_MS consecutive scans */
+    if (currentKey == prevKeyIndex && currentKey >= 0) {
+        debounceCount++;
+        if (debounceCount >= KEY_DEBOUNCE_MS && adcRanges[currentKey].action != NULL) {
+            adcRanges[currentKey].action();
+            debounceCount = 0;         /* prevent auto-repeat */
+            prevKeyIndex = -1;         /* require release before next action */
+        }
+    } else {
+        debounceCount = 0;
+    }
+
+    prevKeyIndex = currentKey;
 }
 
 static void actionForSW1(void)

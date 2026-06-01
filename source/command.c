@@ -61,7 +61,7 @@ static lpuart_config_t config;
 
 /* Command handler prototypes */
 static void handle_SS_RLY_EN_Command(char *ptr);
-static void handle_SS_PLY_DIS_Command(char *ptr);
+static void handle_SS_RLY_DIS_Command(char *ptr);
 static void handle_PFC1_EN_Command(char *ptr);
 static void handle_PFC1_DIS_Command(char *ptr);
 static void handle_PFC2_EN_Command(char *ptr);
@@ -92,7 +92,7 @@ typedef struct {
 
 static Command commands[] = {
     {CMD_SS_RLY_EN,         handle_SS_RLY_EN_Command},
-    {CMD_SS_RLY_DIS,        handle_SS_PLY_DIS_Command},
+    {CMD_SS_RLY_DIS,        handle_SS_RLY_DIS_Command},
     {CMD_PFC1_EN,           handle_PFC1_EN_Command},
     {CMD_PFC1_DIS,          handle_PFC1_DIS_Command},
     {CMD_PFC2_EN,           handle_PFC2_EN_Command},
@@ -118,9 +118,6 @@ static Command commands[] = {
 };
 
 #define COMMAND_COUNT (sizeof(commands) / sizeof(commands[0]))
-
-static uint32_t dacValue;
-static uint32_t pwmValue;
 
 /*================================================================
  * UART Configuration
@@ -153,8 +150,6 @@ void DEMO_LPUART_IRQHandler(void)
         uint8_t ch = LPUART_ReadByte(LPUART4);
         LPUART_ClearStatusFlags(LPUART4, kLPUART_RxDataRegFullFlag);
 
-        taskENTER_CRITICAL_FROM_ISR();
-
         if (bufIndex < sizeof(msg.data) - 1) {
             msg.data[bufIndex++] = ch;
 
@@ -174,7 +169,7 @@ void DEMO_LPUART_IRQHandler(void)
             bufIndex = 0;
         }
 
-        taskEXIT_CRITICAL_FROM_ISR(xHigherPriorityTaskWoken);
+        portYIELD_FROM_ISR(xHigherPriorityTaskWoken);
     }
 }
 
@@ -215,7 +210,8 @@ void processReceivedCommand(const char *data)
     }
 
     for (uint32_t i = 0; i < COMMAND_COUNT; i++) {
-        if (strstr(ptr, commands[i].name) != NULL) {
+        size_t cmdLen = strlen(commands[i].name);
+        if (strncmp(ptr, commands[i].name, cmdLen) == 0) {
             commands[i].handler(ptr);
             commandMatched = true;
             PRINTF("Command matched: %s\r\n", commands[i].name);
@@ -237,7 +233,7 @@ static void handle_SS_RLY_EN_Command(char *ptr) {
     GPIO_PortSet(SS_RLY_EN_GPIO, 1u << SS_RLY_EN_GPIO_PIN);
 }
 
-static void handle_SS_PLY_DIS_Command(char *ptr) {
+static void handle_SS_RLY_DIS_Command(char *ptr) {
     (void)ptr;
     PRINTF("You disable SS-RLY\r\n");
     GPIO_PortClear(SS_RLY_EN_GPIO, 1u << SS_RLY_EN_GPIO_PIN);
@@ -344,7 +340,7 @@ static void handle_WritePWM1_Command(char *ptr) {
     if (paramStart != NULL) {
         paramStart++;
         while (*paramStart == ' ' || *paramStart == '\t') paramStart++;
-        pwmValue = atoi(paramStart);
+        uint32_t pwmValue = atoi(paramStart);
         if (pwmValue > 100) {
             PRINTF("Invalid, out of PWM range\r\n");
             return;
@@ -360,7 +356,7 @@ static void handle_WritePWM2_Command(char *ptr) {
     if (paramStart != NULL) {
         paramStart++;
         while (*paramStart == ' ' || *paramStart == '\t') paramStart++;
-        pwmValue = atoi(paramStart);
+        uint32_t pwmValue = atoi(paramStart);
         if (pwmValue > 100) {
             PRINTF("Invalid, out of PWM range\r\n");
             return;
@@ -376,7 +372,7 @@ static void handle_WritePWM3_Command(char *ptr) {
     if (paramStart != NULL) {
         paramStart++;
         while (*paramStart == ' ' || *paramStart == '\t') paramStart++;
-        pwmValue = atoi(paramStart);
+        uint32_t pwmValue = atoi(paramStart);
         if (pwmValue > 100) {
             PRINTF("Invalid, out of PWM range\r\n");
             return;
@@ -412,7 +408,7 @@ static void handle_WriteDac0_Command(char *ptr) {
     if (paramStart != NULL) {
         paramStart++;
         while (*paramStart == ' ' || *paramStart == '\t') paramStart++;
-        dacValue = atoi(paramStart);
+        uint32_t dacValue = atoi(paramStart);
         if (dacValue > 4095) {
             PRINTF("Invalid, out of DAC range\r\n");
             return;
@@ -427,7 +423,7 @@ static void handle_WriteDac1_Command(char *ptr) {
     if (paramStart != NULL) {
         paramStart++;
         while (*paramStart == ' ' || *paramStart == '\t') paramStart++;
-        dacValue = atoi(paramStart);
+        uint32_t dacValue = atoi(paramStart);
         if (dacValue > 4095) {
             PRINTF("Invalid, out of DAC range\r\n");
             return;

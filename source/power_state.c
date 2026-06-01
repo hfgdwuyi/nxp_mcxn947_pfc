@@ -81,31 +81,31 @@ bool prvIsPFCEnabled(void)
 
 static void prvRelayTimerCallback(TimerHandle_t xTimer)
 {
-    (void)xTimer;
     prvEnableSoftStart(true);
     g_relayStatus = true;
 
     if (xTaskSoftStart != NULL) {
         xTaskNotifyGive(xTaskSoftStart);
     }
+    xTimerDelete(xTimer, 0);
 }
 
 static void prvPFCTimerCallback(TimerHandle_t xTimer)
 {
-    (void)xTimer;
     PRINTF("PFC delay done, starting PFC\r\n");
     if (xTaskPFCControl != NULL) {
         xTaskNotifyGive(xTaskPFCControl);
     }
+    xTimerDelete(xTimer, 0);
 }
 
 static void prvDCTimerCallback(TimerHandle_t xTimer)
 {
-    (void)xTimer;
     PRINTF("DC delay done, starting DC\r\n");
     if (xTaskDCControl != NULL) {
         xTaskNotifyGive(xTaskDCControl);
     }
+    xTimerDelete(xTimer, 0);
 }
 
 /* --- Task functions --- */
